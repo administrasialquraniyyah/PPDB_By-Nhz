@@ -1,0 +1,268 @@
+import * as XLSX from 'xlsx';
+
+export interface ParsedStudentRow {
+  rowNumber: number;
+  namaLengkap: string;
+  jenjang: string;
+  tahunAjaran?: string;
+  noInduk?: string;
+  nik?: string;
+  nisn?: string;
+  jenisKelamin?: string;
+  ttl?: string;
+  tempatLahir?: string;
+  tanggalLahir?: string;
+  email?: string;
+  noHp?: string;
+  alamat?: string;
+  asalSekolah?: string;
+  alamatSekolah?: string;
+  namaAyah?: string;
+  noHpAyah?: string;
+  namaIbu?: string;
+  noHpIbu?: string;
+  username?: string;
+  password?: string;
+  gelombang?: string;
+  
+  // Data formulir awal dari file jika ada
+  biayaFormulir?: number;
+  ketPembFormulir?: string;
+  
+  // Data daftar ulang awal dari file jika ada
+  statusDaftarUlang?: string;
+  nominalDaftarUlang?: number;
+  metodeDaftarUlang?: string;
+
+  // Data rekomendasi awal dari file jika ada
+  rekomendasi?: string;
+  
+  raw: Record<string, any>;
+  hasError: boolean;
+  errors: string[];
+}
+
+export function parseExcelBuffer(buffer: Buffer): {
+  sheets: string[];
+  selectedSheet: string;
+  rows: ParsedStudentRow[];
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  headerRowIndex: number;
+} {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheets = workbook.SheetNames;
+  
+  // Prioritize sheets named 'DATA SANTRI', 'Sheet1', or the first non-empty sheet
+  let selectedSheet = sheets[0];
+  if (sheets.includes('DATA SANTRI')) {
+    selectedSheet = 'DATA SANTRI';
+  } else if (sheets.includes('Sheet1')) {
+    selectedSheet = 'Sheet1';
+  }
+
+  const worksheet = workbook.Sheets[selectedSheet];
+  const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+  // Locate the header row by searching for "NAMA" or "Nama" or "Nama Lengkap"
+  let headerRowIndex = -1;
+  for (let i = 0; i < Math.min(rawData.length, 15); i++) {
+    const row = rawData[i];
+    if (Array.isArray(row)) {
+      const hasName = row.some((cell) => {
+        const str = String(cell || '').trim().toUpperCase();
+        return str === 'NAMA' || str === 'NAMA LENGKAP' || str === 'NAMA SANTRI' || str === 'NAMA SISWA';
+      });
+      if (hasName) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Fallback: If row 0 doesn't have NAMA but has columns, or check if row 0 is headers
+  if (headerRowIndex === -1 && rawData.length > 0) {
+    // Check if row 0 has strings like "NO", "JENJANG", "NIK"
+    const row0 = rawData[0];
+    if (row0 && row0.some((c) => /JENJANG|TAHUN|NIK|NISN|NO/i.test(String(c)))) {
+      headerRowIndex = 0;
+    } else {
+      headerRowIndex = 0;
+    }
+  }
+
+  const headers: string[] = (rawData[headerRowIndex] || []).map((h) => String(h || '').trim());
+  const headerMap: Record<string, number> = {};
+
+  headers.forEach((h, idx) => {
+    const norm = h.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (norm) headerMap[norm] = idx;
+  });
+
+  // Helper to find column index from aliases
+  const findCol = (aliases: string[]): number => {
+    for (const a of aliases) {
+      const norm = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (headerMap[norm] !== undefined) return headerMap[norm];
+    }
+    return -1;
+  };
+
+  const colNama = findCol(['NAMA', 'NAMALENGKAP', 'NAMASISWA', 'NAMASANTRI']);
+  const colJenjang = findCol(['JENJANG', 'PROGRAM', 'TINGKAT', 'UNIT']);
+  const colTahun = findCol(['TP', 'TAHUN', 'TAHUNAJARAN', 'TAHUNPELAJARAN']);
+  const colNoInduk = findCol(['NOINDUK', 'NIS', 'INDUK', 'NOMORINDUK']);
+  const colNik = findCol(['NIK', 'NOKTP']);
+  const colNisn = findCol(['NISN']);
+  const colJk = findCol(['LP', 'JENISKELAMIN', 'JK', 'SEX']);
+  const colTtl = findCol(['TTL', 'TEMPATLAHIR', 'TEMPATLAHIRTANGGALLAHIR']);
+  const colEmail = findCol(['EMAIL', 'SUREL']);
+  const colNoHp = findCol(['NOHP', 'NOTLP', 'NOTELEPON', 'TELEPON', 'WA', 'NOWA']);
+  const colAlamat = findCol(['ALAMAT', 'DOMISILI', 'ALAMATSISWA']);
+  const colAsalSekolah = findCol(['ASALSEKOLAH', 'SEKOLAHASAL', 'SEKOLAH']);
+  const colAlamatSekolah = findCol(['ALAMATASALSEKOLAH', 'ALAMATSEKOLAH']);
+  const colAyah = findCol(['AYAH', 'NAMAAYAH', 'ORTU']);
+  const colIbu = findCol(['IBU', 'NAMAIBU']);
+  const colUsername = findCol(['USERNAME', 'USER']);
+  const colPassword = findCol(['PASSWORD', 'PASS']);
+  const colGelombang = findCol(['GELOMBANG', 'GEL']);
+  const colBiayaForm = findCol(['BIAYAFORM', 'BIAYAFORMULIR', 'FORMULIR', 'BIAYA']);
+  const colKetPemb = findCol(['KETPEMB', 'METODEFORMULIR', 'PEMBAYARANFORMULIR']);
+  const colDaftarUlang = findCol(['DAFTARULANG', 'STATUSDAFTARULANG', 'KETDAFTARULANG']);
+  const colJumlahDU = findCol(['JUMLAH', 'NOMINALDAFTARULANG', 'BIAYADAFTARULANG']);
+  const colTujuanTransfer = findCol(['TUJUANTRANSFER', 'METODEDAFTARULANG', 'BANK']);
+  const colRekomendasi = findCol(['REKOMENDASI', 'PEREKOMENDASI', 'PEMBERIREKOMENDASI']);
+
+  const parsedRows: ParsedStudentRow[] = [];
+
+  for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+    const row = rawData[i];
+    if (!row || !row.length) continue;
+
+    // Check if row has some data
+    const hasData = row.some((c) => c !== null && c !== undefined && String(c).trim() !== '');
+    if (!hasData) continue;
+
+    // In some tables like Santri Baru Full Data, column 3 (index 3) is Nama if header was empty
+    let nama = colNama !== -1 ? String(row[colNama] || '').trim() : '';
+    if (!nama && row[3] && typeof row[3] === 'string' && isNaN(Number(row[3]))) {
+      nama = String(row[3]).trim();
+    }
+    if (!nama && row[1] && typeof row[1] === 'string' && isNaN(Number(row[1]))) {
+      nama = String(row[1]).trim();
+    }
+
+    // Skip footer or total rows
+    if (/TOTAL|JUMLAH|REKAPITULASI|PENGELUARAN/i.test(nama)) continue;
+
+    const errors: string[] = [];
+    if (!nama) {
+      errors.push('Nama siswa kosong');
+    }
+
+    let rawJenjang = colJenjang !== -1 ? String(row[colJenjang] || '').trim() : '';
+    // Normalize jenjang: TK / SD / SMP / SMA
+    let jenjang = 'SMP';
+    const upJ = rawJenjang.toUpperCase();
+    if (upJ.includes('TK') || upJ.includes('STK') || upJ.includes('PAUD')) jenjang = 'TK';
+    else if (upJ.includes('SD')) jenjang = 'SD';
+    else if (upJ.includes('SMP') || upJ.includes('MTS')) jenjang = 'SMP';
+    else if (upJ.includes('SMA') || upJ.includes('SMK') || upJ.includes('MA')) jenjang = 'SMA';
+    else if (rawJenjang) jenjang = rawJenjang;
+
+    let tahunAjaran = colTahun !== -1 ? String(row[colTahun] || '').trim() : '';
+    if (tahunAjaran && !tahunAjaran.includes('/') && tahunAjaran.length === 4) {
+      const nextY = parseInt(tahunAjaran) + 1;
+      tahunAjaran = `${tahunAjaran}/${nextY}`;
+    }
+
+    let rawJk = colJk !== -1 ? String(row[colJk] || '').trim().toUpperCase() : '';
+    let jk = '';
+    if (rawJk.startsWith('L') || rawJk === 'LAKI-LAKI') jk = 'L';
+    else if (rawJk.startsWith('P') || rawJk === 'PEREMPUAN') jk = 'P';
+
+    // Parse TTL if separate or combined
+    const ttlRaw = colTtl !== -1 ? String(row[colTtl] || '').trim() : '';
+    let tempatLahir = '';
+    let tanggalLahir = '';
+    if (ttlRaw.includes(',')) {
+      const parts = ttlRaw.split(',');
+      tempatLahir = parts[0]?.trim() || '';
+      tanggalLahir = parts.slice(1).join(',').trim() || '';
+    } else {
+      tempatLahir = ttlRaw;
+    }
+
+    // Parse biaya formulir
+    let biayaForm = 0;
+    if (colBiayaForm !== -1 && row[colBiayaForm]) {
+      const n = Number(String(row[colBiayaForm]).replace(/[^0-9]/g, ''));
+      if (!isNaN(n)) biayaForm = n;
+    }
+
+    // Parse daftar ulang
+    let nominalDU = 0;
+    if (colJumlahDU !== -1 && row[colJumlahDU]) {
+      const n = Number(String(row[colJumlahDU]).replace(/[^0-9]/g, ''));
+      if (!isNaN(n)) nominalDU = n;
+    }
+
+    const cleanClean = (val: any) => {
+      if (val === null || val === undefined) return '';
+      let s = String(val).trim();
+      if (s.startsWith("'")) s = s.substring(1);
+      return s === '-' ? '' : s;
+    };
+
+    const rowObj: ParsedStudentRow = {
+      rowNumber: i + 1,
+      namaLengkap: cleanClean(nama),
+      jenjang,
+      tahunAjaran: cleanClean(tahunAjaran),
+      noInduk: colNoInduk !== -1 ? cleanClean(row[colNoInduk]) : '',
+      nik: colNik !== -1 ? cleanClean(row[colNik]) : '',
+      nisn: colNisn !== -1 ? cleanClean(row[colNisn]) : '',
+      jenisKelamin: jk,
+      ttl: cleanClean(ttlRaw),
+      tempatLahir: cleanClean(tempatLahir),
+      tanggalLahir: cleanClean(tanggalLahir),
+      email: colEmail !== -1 ? cleanClean(row[colEmail]) : '',
+      noHp: colNoHp !== -1 ? cleanClean(row[colNoHp]) : '',
+      alamat: colAlamat !== -1 ? cleanClean(row[colAlamat]) : '',
+      asalSekolah: colAsalSekolah !== -1 ? cleanClean(row[colAsalSekolah]) : '',
+      alamatSekolah: colAlamatSekolah !== -1 ? cleanClean(row[colAlamatSekolah]) : '',
+      namaAyah: colAyah !== -1 ? cleanClean(row[colAyah]) : '',
+      namaIbu: colIbu !== -1 ? cleanClean(row[colIbu]) : '',
+      username: colUsername !== -1 ? cleanClean(row[colUsername]) : '',
+      password: colPassword !== -1 ? cleanClean(row[colPassword]) : '',
+      gelombang: colGelombang !== -1 ? cleanClean(row[colGelombang]) || 'Gelombang 1' : 'Gelombang 1',
+      biayaFormulir: biayaForm,
+      ketPembFormulir: colKetPemb !== -1 ? cleanClean(row[colKetPemb]) : 'Transfer',
+      statusDaftarUlang: colDaftarUlang !== -1 ? cleanClean(row[colDaftarUlang]) : 'Belum',
+      nominalDaftarUlang: nominalDU,
+      metodeDaftarUlang: colTujuanTransfer !== -1 ? cleanClean(row[colTujuanTransfer]) : '',
+      rekomendasi: colRekomendasi !== -1 ? cleanClean(row[colRekomendasi]) : '',
+      raw: row,
+      hasError: errors.length > 0,
+      errors,
+    };
+
+    if (rowObj.namaLengkap) {
+      parsedRows.push(rowObj);
+    }
+  }
+
+  const validRows = parsedRows.filter((r) => !r.hasError).length;
+  const invalidRows = parsedRows.length - validRows;
+
+  return {
+    sheets,
+    selectedSheet,
+    rows: parsedRows,
+    totalRows: parsedRows.length,
+    validRows,
+    invalidRows,
+    headerRowIndex,
+  };
+}
