@@ -10,10 +10,12 @@ export async function ensureDbSchema() {
   if (isSchemaMigrated) return;
 
   try {
-    // 1. Add id_nasabah column to bank_accounts if not exists
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE ppdb.bank_accounts ADD COLUMN IF NOT EXISTS id_nasabah TEXT;
-    `);
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "public"."bank_accounts" ADD COLUMN IF NOT EXISTS id_nasabah TEXT;`);
+    } catch (e) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "ppdb"."bank_accounts" ADD COLUMN IF NOT EXISTS id_nasabah TEXT;`);
+    } catch (e) {}
     isSchemaMigrated = true;
   } catch (error: any) {
     console.error('Error during auto-migration ensureDbSchema:', error?.message);
