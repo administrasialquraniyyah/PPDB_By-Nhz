@@ -134,7 +134,19 @@ export async function GET(request: Request) {
         }
       }
 
-      const jkFull = s.jenisKelamin === 'L' ? 'Laki-laki' : s.jenisKelamin === 'P' ? 'Perempuan' : '';
+      // Format Jenis Kelamin: huruf besar inisial (Laki -> L, Perempuan -> P)
+      let jkInitial = 'L';
+      if (s.jenisKelamin) {
+        const rawJk = s.jenisKelamin.trim().toUpperCase();
+        if (rawJk.startsWith('P') || rawJk === 'PEREMPUAN') {
+          jkInitial = 'P';
+        } else {
+          jkInitial = 'L';
+        }
+      }
+
+      // Format Agama: tulisan islam huruf kecil semua ("islam")
+      const agamaFormatted = (s.agama || 'islam').trim().toLowerCase();
       const tahunMasuk = s.academicYear?.name ? s.academicYear.name.split('/')[0] : '2026';
 
       rows.push([
@@ -143,8 +155,8 @@ export async function GET(request: Request) {
         s.namaLengkap,
         s.tempatLahir || '',
         formattedDob,
-        jkFull || 'Laki-laki',
-        s.agama || 'Islam',
+        jkInitial,
+        agamaFormatted,
         s.golonganDarah || 'o',
         s.alamat || '',
         s.kota || 'Tangerang Selatan',
