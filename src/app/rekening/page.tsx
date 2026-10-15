@@ -27,6 +27,7 @@ import {
   Sparkles,
   User,
   ShieldCheck,
+  Phone,
 } from 'lucide-react';
 
 export default function RekeningPage() {
@@ -101,7 +102,9 @@ export default function RekeningPage() {
       a.student?.namaLengkap?.toLowerCase().includes(q) ||
       a.accountNumber?.toLowerCase().includes(q) ||
       a.idNasabah?.toLowerCase().includes(q) ||
-      a.student?.noInduk?.toLowerCase().includes(q) ||
+      a.student?.noHp?.toLowerCase().includes(q) ||
+      a.student?.noHpAyah?.toLowerCase().includes(q) ||
+      a.student?.noHpIbu?.toLowerCase().includes(q) ||
       a.student?.username?.toLowerCase().includes(q) ||
       a.student?.idKartu?.toLowerCase().includes(q)
     );
@@ -454,7 +457,7 @@ Terima kasih.`;
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Cari nama siswa, nomor rekening, atau NIS..."
+            placeholder="Cari nama siswa, nomor rekening, atau no. telepon..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"
@@ -516,7 +519,7 @@ Terima kasih.`;
                   <th className="py-3.5 px-3 w-12 text-center">No</th>
                   <th className="py-3.5 px-4 min-w-[210px]">Nama Siswa</th>
                   <th className="py-3.5 px-3 w-20 text-center">Jenjang</th>
-                  <th className="py-3.5 px-3 min-w-[140px]">NIS / NIK</th>
+                  <th className="py-3.5 px-3 min-w-[150px]">Nomor Telepon</th>
                   <th className="py-3.5 px-4 min-w-[180px]">Akun Aplikasi & Kartu</th>
                   <th className="py-3.5 px-3 min-w-[140px] text-center">Status Rekening</th>
                   <th className="py-3.5 px-4 min-w-[170px]">Nomor Rekening</th>
@@ -532,6 +535,7 @@ Terima kasih.`;
                   const isEligible = a.status === 'Sudah dibuat' && (!!a.accountNumber || !!a.idNasabah);
                   const isChecked = selectedStudentIds.includes(sId);
                   const bankShort = a.bankName && a.bankName.includes('BSI') ? 'BSI' : (a.bankName || 'BSI');
+                  const phone = a.student?.noHp || a.student?.noHpAyah || a.student?.noHpIbu;
                   return (
                   <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${isChecked ? 'bg-purple-50/40' : ''}`}>
                     <td className="py-3 px-3 text-center whitespace-nowrap">
@@ -556,14 +560,21 @@ Terima kasih.`;
                         {a.student?.jenjang || '-'}
                       </span>
                     </td>
-                    <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
-                      {(() => {
-                        const validNoInduk =
-                          a.student?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(a.student.noInduk)
-                            ? a.student.noInduk
-                            : '';
-                        return validNoInduk || a.student?.nisn || a.student?.nik || '-';
-                      })()}
+                    <td className="py-3 px-3 font-mono text-slate-700 whitespace-nowrap">
+                      {phone ? (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="font-semibold text-xs text-slate-800">{phone}</span>
+                          {a.student?.noHpAyah && !a.student?.noHp && (
+                            <span className="text-[10px] text-slate-400 font-sans">(Ayah)</span>
+                          )}
+                          {a.student?.noHpIbu && !a.student?.noHp && !a.student?.noHpAyah && (
+                            <span className="text-[10px] text-slate-400 font-sans">(Ibu)</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 select-none">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {a.student?.username || a.student?.password || a.student?.idKartu ? (
