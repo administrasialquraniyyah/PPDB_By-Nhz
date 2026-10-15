@@ -117,6 +117,7 @@ model BankAccount {
   status        String    @default("Belum dibuat") // Belum dibuat | Sudah dibuat
   bankName      String?   @default("Bank Syariah Indonesia (BSI)") @map("bank_name")
   accountNumber String?   @map("account_number")
+  idNasabah     String?   @map("id_nasabah")
   createdDate   DateTime? @map("created_date")
   notes         String?   @db.Text
   createdAt     DateTime  @default(now()) @map("created_at")

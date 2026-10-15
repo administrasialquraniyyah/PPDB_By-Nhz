@@ -122,8 +122,10 @@ export async function POST(request: Request) {
 
     const where: any = {
       bankAccount: {
-        status: 'Sudah dibuat',
-        accountNumber: { not: null },
+        OR: [
+          { idNasabah: { not: null } },
+          { accountNumber: { not: null } },
+        ],
       },
     };
 
@@ -192,7 +194,7 @@ export async function POST(request: Request) {
     const dataRows: any[][] = [];
 
     for (const s of students) {
-      const idNasabah = s.bankAccount?.accountNumber || '';
+      const idNasabah = s.bankAccount?.idNasabah || s.bankAccount?.accountNumber || '';
       if (!idNasabah) continue;
 
       const group4 = s.academicYear?.name || '2027/2028';

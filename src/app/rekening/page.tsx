@@ -20,6 +20,13 @@ import {
   Receipt,
   CheckSquare,
   Square,
+  Eye,
+  Copy,
+  Check,
+  Printer,
+  Sparkles,
+  User,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function RekeningPage() {
@@ -46,6 +53,10 @@ export default function RekeningPage() {
   const [showTagihanModal, setShowTagihanModal] = useState(false);
   const [tagihanMode, setTagihanMode] = useState<'selected' | 'all'>('selected');
   const [downloadingTagihan, setDownloadingTagihan] = useState(false);
+
+  // Preview Card Modal (Siap Screenshot untuk Wali Santri)
+  const [selectedCardAccount, setSelectedCardAccount] = useState<any>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Mass Import Modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -89,11 +100,112 @@ export default function RekeningPage() {
     return (
       a.student?.namaLengkap?.toLowerCase().includes(q) ||
       a.accountNumber?.toLowerCase().includes(q) ||
+      a.idNasabah?.toLowerCase().includes(q) ||
       a.student?.noInduk?.toLowerCase().includes(q) ||
       a.student?.username?.toLowerCase().includes(q) ||
       a.student?.idKartu?.toLowerCase().includes(q)
     );
   });
+
+  const getDraftTagihan = (jenjang: string, jk?: string) => {
+    const j = (jenjang || 'SMP').toUpperCase();
+    const isP = (jk || '').toUpperCase().startsWith('P');
+    if (j.includes('SMA')) {
+      return {
+        kelas: 'Kelas 10 SMA IT',
+        items: [
+          { nama: 'SPP Bulan Juli', nominal: 1650000 },
+          { nama: 'Perlengkapan Santri', nominal: 3600000 },
+          { nama: 'Kegiatan Tahunan', nominal: 1000000 },
+          { nama: 'Peralatan Santri', nominal: 2100000 },
+          { nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
+          { nama: 'Uang Pembangunan / Gedung', nominal: 6000000 },
+        ],
+        total: 16450000,
+      };
+    }
+    if (j.includes('SD')) {
+      const perlengkapan = isP ? 1450000 : 1300000;
+      const total = 550000 + perlengkapan + 100000 + 1600000 + 2300000 + 5500000;
+      return {
+        kelas: 'Kelas 1 SD IT',
+        items: [
+          { nama: 'SPP Bulan Juli', nominal: 550000 },
+          { nama: `Perlengkapan Santri (${isP ? 'Putri' : 'Putra'})`, nominal: perlengkapan },
+          { nama: 'Kegiatan Tahunan', nominal: 100000 },
+          { nama: 'Peralatan Santri', nominal: 1600000 },
+          { nama: 'Buku Paket Pembelajaran', nominal: 2300000 },
+          { nama: 'Uang Pembangunan / Gedung', nominal: 5500000 },
+        ],
+        total,
+      };
+    }
+    if (j.includes('TK') || j.includes('PAUD')) {
+      return {
+        kelas: 'Kelas TK A IT',
+        items: [
+          { nama: 'SPP Bulan Juli', nominal: 400000 },
+          { nama: 'Perlengkapan Santri', nominal: 1050000 },
+          { nama: 'Peralatan Santri', nominal: 700000 },
+          { nama: 'Buku Paket Pembelajaran', nominal: 1000000 },
+          { nama: 'Uang Pembangunan / Gedung', nominal: 1500000 },
+        ],
+        total: 4650000,
+      };
+    }
+    // Default SMP
+    return {
+      kelas: 'Kelas 7 SMP IT',
+      items: [
+        { nama: 'SPP Bulan Juli', nominal: 1600000 },
+        { nama: 'Perlengkapan Santri', nominal: 3300000 },
+        { nama: 'Kegiatan Tahunan', nominal: 900000 },
+        { nama: 'Peralatan Santri', nominal: 1950000 },
+        { nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
+        { nama: 'Uang Pembangunan / Gedung', nominal: 6000000 },
+      ],
+      total: 15850000,
+    };
+  };
+
+  const handleCopyWhatsApp = (account: any) => {
+    const s = account.student;
+    const tagihan = getDraftTagihan(s?.jenjang, s?.jenisKelamin);
+    const text = `*KARTU INFORMASI SANTRI & DRAFT TAGIHAN AWAL*
+*PONDOK PESANTREN AL-QUR'ANIYYAH*
+Tahun Ajaran: ${selectedYearName}
+─────────────────────────────
+👤 *DATA SANTRI*
+• *Nama Santri:* ${s?.namaLengkap || '-'}
+• *Jenjang / Kelas:* ${s?.jenjang || '-'} (${tagihan.kelas})
+• *NIS / NISN:* ${s?.noInduk || s?.nisn || '-'}
+• *NIK:* ${s?.nik || '-'}
+• *Orang Tua:* ${s?.namaAyah || s?.namaIbu || '-'}
+• *No. HP/WA:* ${s?.noHp || s?.noHpAyah || s?.noHpIbu || '-'}
+
+🏦 *DATA REKENING BANK & APLIKASI*
+• *Bank:* ${account.bankName || 'Bank Syariah Indonesia (BSI)'}
+• *Nomor Rekening:* ${account.accountNumber || '-'}
+• *ID Nasabah BSI:* ${account.idNasabah || '-'}
+• *ID Kartu CBS:* ${s?.idKartu || '-'}
+• *Username Aplikasi:* ${s?.username || '-'}
+• *Password Aplikasi:* ${s?.password || '-'}
+
+📋 *DRAFT ESTIMASI TAGIHAN AWAL*
+${tagihan.items.map((it) => `• ${it.nama}: Rp ${it.nominal.toLocaleString('id-ID')}`).join('\n')}
+─────────────────────────────
+💰 *TOTAL ESTIMASI:* Rp ${tagihan.total.toLocaleString('id-ID')}
+
+📌 *Catatan:*
+Pembayaran tagihan dapat disalurkan melalui Nomor Rekening / Virtual Account BSI di atas. Simpan bukti transfer untuk verifikasi.
+Terima kasih.`;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2500);
+  };
 
   const handleOpenExportModal = async () => {
     setShowExportModal(true);
@@ -139,7 +251,7 @@ export default function RekeningPage() {
   };
 
   const eligibleAccounts = filteredAccounts.filter(
-    (a) => a.status === 'Sudah dibuat' && a.accountNumber
+    (a) => a.status === 'Sudah dibuat' && (a.accountNumber || a.idNasabah)
   );
 
   const isAllEligibleSelected =
@@ -406,6 +518,7 @@ export default function RekeningPage() {
                   <th className="py-3 px-3 font-semibold">Akun Aplikasi & Kartu</th>
                   <th className="py-3 px-3 font-semibold">Status Rekening</th>
                   <th className="py-3 px-3 font-semibold">Nomor Rekening</th>
+                  <th className="py-3 px-3 font-semibold">ID Nasabah</th>
                   <th className="py-3 px-3 font-semibold">Bank</th>
                   <th className="py-3 px-3 font-semibold">Tanggal Pembuatan</th>
                   <th className="py-3 px-3 font-semibold text-right">Aksi</th>
@@ -414,7 +527,7 @@ export default function RekeningPage() {
               <tbody className="divide-y divide-slate-100 font-sans">
                 {filteredAccounts.map((a, idx) => {
                   const sId = a.studentId || a.student?.id;
-                  const isEligible = a.status === 'Sudah dibuat' && !!a.accountNumber;
+                  const isEligible = a.status === 'Sudah dibuat' && (!!a.accountNumber || !!a.idNasabah);
                   const isChecked = selectedStudentIds.includes(sId);
                   return (
                   <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${isChecked ? 'bg-purple-50/40' : ''}`}>
@@ -427,7 +540,7 @@ export default function RekeningPage() {
                           className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                         />
                       ) : (
-                        <span className="text-slate-300 font-mono text-xs select-none" title="Belum memiliki nomor rekening">-</span>
+                        <span className="text-slate-300 font-mono text-xs select-none" title="Belum memiliki nomor rekening / ID Nasabah">-</span>
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
@@ -480,17 +593,35 @@ export default function RekeningPage() {
                     <td className="py-2.5 px-3 font-mono font-bold text-purple-900 text-sm">
                       {a.accountNumber || '-'}
                     </td>
+                    <td className="py-2.5 px-3">
+                      {a.idNasabah ? (
+                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
+                          {a.idNasabah}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-mono text-xs">-</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-slate-600">{a.bankName || 'BSI'}</td>
                     <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
                       {a.createdDate ? formatDate(a.createdDate) : '-'}
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      <button
-                        onClick={() => setEditingAccount({ ...a, student: { ...a.student } })}
-                        className="px-2.5 py-1 text-slate-600 hover:text-purple-700 bg-slate-100 hover:bg-purple-50 rounded-lg font-semibold transition"
-                      >
-                        Edit Rekening
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedCardAccount(a)}
+                          title="Preview Card Santri & Draft Tagihan (Siap Screenshot)"
+                          className="p-1.5 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition border border-slate-200/60"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingAccount({ ...a, student: { ...a.student } })}
+                          className="px-2.5 py-1 text-slate-600 hover:text-purple-700 bg-slate-100 hover:bg-purple-50 rounded-lg font-semibold transition border border-slate-200/60"
+                        >
+                          Edit Rekening
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -709,18 +840,42 @@ export default function RekeningPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block font-medium text-slate-700 mb-1">Nomor Rekening Siswa</label>
-              <input
-                type="text"
-                placeholder="Contoh: 00110100220"
-                value={editingAccount.accountNumber || ''}
-                onChange={(e) =>
-                  setEditingAccount({ ...editingAccount, accountNumber: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-sm text-purple-900"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">
+                  Nomor Rekening Siswa
+                  <span className="text-slate-400 font-normal text-[10px] ml-1">(Informasi)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 000000538"
+                  value={editingAccount.accountNumber || ''}
+                  onChange={(e) =>
+                    setEditingAccount({ ...editingAccount, accountNumber: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-sm text-purple-900"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">
+                  ID Nasabah BSI
+                  <span className="text-emerald-700 font-bold text-[10px] ml-1">(Untuk Tagihan)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 1480026000"
+                  value={editingAccount.idNasabah || ''}
+                  onChange={(e) =>
+                    setEditingAccount({ ...editingAccount, idNasabah: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-sm text-emerald-900 bg-emerald-50/40"
+                />
+              </div>
             </div>
+            <p className="text-[10px] text-slate-500 -mt-1">
+              💡 <strong>ID Nasabah</strong> ini yang akan otomatis masuk ke file Excel Export Buatkan Tagihan sebagai acuan tagihan BSI.
+            </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -831,6 +986,298 @@ export default function RekeningPage() {
           </form>
         </Modal>
       )}
+
+      {/* PREVIEW CARD SANTRI & DRAFT TAGIHAN AWAL (SIAP SCREENSHOT) */}
+      {selectedCardAccount && (() => {
+        const student = selectedCardAccount.student;
+        const tagihan = getDraftTagihan(student?.jenjang, student?.jenisKelamin);
+        return (
+          <Modal
+            isOpen={true}
+            onClose={() => setSelectedCardAccount(null)}
+            title="Preview Card Santri & Draft Tagihan Awal"
+            description="Tampilan ringkas informasi santri, akun BSI/Aplikasi, dan draft rincian tagihan awal tahun ajaran. Siap di-screenshot atau dikirimkan ke wali santri."
+            maxWidth="2xl"
+          >
+            <div className="space-y-4 text-xs">
+              <style>{`
+                @media print {
+                  body * {
+                    visibility: hidden;
+                  }
+                  #santri-card-print, #santri-card-print * {
+                    visibility: visible;
+                  }
+                  #santri-card-print {
+                    position: fixed;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0;
+                    padding: 24px;
+                    box-shadow: none !important;
+                    border: 1px solid #10b981 !important;
+                  }
+                }
+              `}</style>
+
+              {/* Quick Action Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <span className="text-[11px] text-slate-600 flex items-center gap-1.5 font-medium">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  Gunakan tombol di samping untuk kirim ke WhatsApp atau cetak / simpan:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyWhatsApp(selectedCardAccount)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm transition text-xs"
+                  >
+                    {copySuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin Teks WhatsApp</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1.5 border border-slate-300 transition text-xs"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Cetak / PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* The Visual Card Container - Designed for Clean Screenshots */}
+              <div
+                id="santri-card-print"
+                className="bg-white border-2 border-emerald-600/30 rounded-2xl shadow-md p-5 space-y-4 relative overflow-hidden"
+              >
+                {/* Decorative Top Accent Bar */}
+                <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-purple-600" />
+
+                {/* Card Header with Pesantren Branding */}
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-xl shadow-inner">
+                      🕌
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight leading-tight">
+                        PONDOK PESANTREN AL-QUR'ANIYYAH
+                      </h3>
+                      <p className="text-[11px] text-emerald-700 font-bold tracking-wide uppercase">
+                        Kartu Informasi Santri & Draft Tagihan Awal
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-900 border border-purple-200">
+                      T.A {selectedYearName}
+                    </span>
+                    <div className="text-[10px] font-bold text-slate-500 mt-1">
+                      Unit: {student?.jenjang || '-'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 1: Identitas Santri */}
+                <div className="bg-slate-50/70 rounded-xl p-3 border border-slate-200/80 space-y-2">
+                  <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Identitas Santri & Wali</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Nama Lengkap Santri:</span>
+                      <span className="font-bold text-slate-900 text-sm">{student?.namaLengkap || '-'}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Jenjang & Kelas:</span>
+                      <span className="font-bold text-purple-900">
+                        {student?.jenjang || '-'} ({tagihan.kelas})
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">NIS / No. Induk / NISN:</span>
+                      <span className="font-mono font-semibold text-slate-800">
+                        {student?.noInduk || student?.nisn || '-'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">NIK Santri:</span>
+                      <span className="font-mono text-slate-800">{student?.nik || '-'}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Nama Orang Tua / Wali:</span>
+                      <span className="font-semibold text-slate-800">
+                        {student?.namaAyah || student?.namaIbu || '-'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">No. HP / WhatsApp:</span>
+                      <span className="font-mono font-semibold text-emerald-800">
+                        {student?.noHp || student?.noHpAyah || student?.noHpIbu || '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Rekening Bank BSI & Akun Aplikasi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Rekening BSI Card */}
+                  <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/90 rounded-xl p-3 border border-emerald-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                        <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Rekening Bank Syariah Indonesia</span>
+                      </span>
+                      <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                        BSI
+                      </span>
+                    </div>
+
+                    <div className="pt-1">
+                      <span className="text-[10px] text-emerald-700 block">Nomor Rekening Santri:</span>
+                      <span className="font-mono font-extrabold text-slate-900 text-base tracking-wide">
+                        {selectedCardAccount.accountNumber || '-'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/60">
+                      <div>
+                        <span className="text-[9px] text-emerald-800 font-medium block">ID Nasabah Tagihan:</span>
+                        <span className="font-mono font-bold text-emerald-950 text-xs">
+                          {selectedCardAccount.idNasabah || '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-emerald-800 font-medium block">ID Kartu CBS:</span>
+                        <span className="font-mono font-bold text-emerald-950 text-xs">
+                          {student?.idKartu || '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Akun Aplikasi Santri */}
+                  <div className="bg-gradient-to-br from-purple-50/90 to-indigo-50/90 rounded-xl p-3 border border-purple-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-purple-900 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Akun Aplikasi / Portal Wali</span>
+                      </span>
+                      <span className="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                        Portal
+                      </span>
+                    </div>
+
+                    <div className="pt-1">
+                      <span className="text-[10px] text-purple-700 block">Username Login:</span>
+                      <span className="font-mono font-bold text-purple-950 text-xs select-all">
+                        {student?.username || '-'}
+                      </span>
+                    </div>
+
+                    <div className="pt-0.5 border-t border-purple-200/60">
+                      <span className="text-[10px] text-purple-700 block">Password Login:</span>
+                      <span className="font-mono font-bold text-purple-950 text-xs select-all">
+                        {student?.password || '-'}
+                      </span>
+                    </div>
+
+                    <p className="text-[9px] text-purple-700 italic pt-0.5">
+                      Gunakan akun ini untuk login pada aplikasi wali santri PPDB / EduPay.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Section 3: Draft Rincian Tagihan Awal */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-100/90 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Draft Rincian Tagihan Awal Tahun Ajaran</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-semibold">
+                      Standar Pembayaran Awal {student?.jenjang || ''}
+                    </span>
+                  </div>
+
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[11px]">
+                      <tr>
+                        <th className="py-1.5 px-3 w-8 text-center font-semibold">No</th>
+                        <th className="py-1.5 px-3 text-left font-semibold">Komponen Pembayaran</th>
+                        <th className="py-1.5 px-3 text-right font-semibold">Nominal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {tagihan.items.map((it, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50">
+                          <td className="py-1.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                            {i + 1}
+                          </td>
+                          <td className="py-1.5 px-3 font-medium text-slate-800">{it.nama}</td>
+                          <td className="py-1.5 px-3 text-right font-mono font-semibold text-slate-900">
+                            Rp {it.nominal.toLocaleString('id-ID')}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-emerald-50/70 font-bold border-t-2 border-emerald-200">
+                        <td colSpan={2} className="py-2.5 px-3 text-emerald-950 font-bold text-xs uppercase">
+                          Total Estimasi Tagihan Awal
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-900 text-sm">
+                          Rp {tagihan.total.toLocaleString('id-ID')}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer Notes for Parents */}
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[10px] text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-700 flex items-center gap-1">
+                    <span>📌 Petunjuk Pembayaran:</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    1. Pembayaran tagihan dapat dilakukan melalui transfer ke Nomor Rekening / Virtual Account BSI di atas.
+                  </p>
+                  <p className="leading-relaxed">
+                    2. Harap simpan bukti transaksi pembayaran dan lakukan konfirmasi ke pihak bendahara pesantren.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCardAccount(null)}
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition text-xs"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* BUATKAN TAGIHAN MODAL */}
       {showTagihanModal && (
