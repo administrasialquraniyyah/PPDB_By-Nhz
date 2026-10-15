@@ -17,6 +17,9 @@ import {
   AlertCircle,
   Edit2,
   Calendar,
+  Receipt,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 export default function RekeningPage() {
@@ -37,6 +40,12 @@ export default function RekeningPage() {
   const [validating, setValidating] = useState(false);
   const [exportJenjang, setExportJenjang] = useState('');
   const [startCardId, setStartCardId] = useState('1480001301');
+
+  // Checkbox Selection for Tagihan
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [showTagihanModal, setShowTagihanModal] = useState(false);
+  const [tagihanMode, setTagihanMode] = useState<'selected' | 'all'>('selected');
+  const [downloadingTagihan, setDownloadingTagihan] = useState(false);
 
   // Mass Import Modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -129,6 +138,73 @@ export default function RekeningPage() {
     setShowExportModal(false);
   };
 
+  const eligibleAccounts = filteredAccounts.filter(
+    (a) => a.status === 'Sudah dibuat' && a.accountNumber
+  );
+
+  const isAllEligibleSelected =
+    eligibleAccounts.length > 0 &&
+    eligibleAccounts.every((a) => selectedStudentIds.includes(a.studentId || a.student?.id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllEligibleSelected) {
+      setSelectedStudentIds([]);
+    } else {
+      setSelectedStudentIds(eligibleAccounts.map((a) => a.studentId || a.student?.id));
+    }
+  };
+
+  const handleToggleSelect = (studentId: string) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const handleDownloadTagihan = async () => {
+    setDownloadingTagihan(true);
+    try {
+      const targetIds =
+        tagihanMode === 'selected'
+          ? selectedStudentIds
+          : eligibleAccounts.map((a) => a.studentId || a.student?.id);
+
+      if (targetIds.length === 0) {
+        alert('Pilih minimal satu santri yang sudah memiliki rekening.');
+        setDownloadingTagihan(false);
+        return;
+      }
+
+      const res = await fetch('/api/bank-accounts/tagihan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          academicYearId: selectedYearId,
+          studentIds: targetIds,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Gagal membuat file tagihan');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Format_Tagihan_BSI_${selectedYearName.replace('/', '-')}_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setShowTagihanModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat mengunduh tagihan');
+    } finally {
+      setDownloadingTagihan(false);
+    }
+  };
+
   const handleMassImportRekening = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) return;
@@ -210,6 +286,19 @@ export default function RekeningPage() {
           >
             <Upload className="w-4 h-4 text-purple-600" />
             <span>Import No. Rekening Massal</span>
+          </button>
+
+          <button
+            onClick={() => setShowTagihanModal(true)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5"
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Buatkan Tagihan</span>
+            {selectedStudentIds.length > 0 && (
+              <span className="bg-emerald-900 text-emerald-100 text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5">
+                {selectedStudentIds.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -300,6 +389,16 @@ export default function RekeningPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200/80">
                 <tr>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllEligibleSelected}
+                      onChange={handleToggleSelectAll}
+                      disabled={eligibleAccounts.length === 0}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      title={isAllEligibleSelected ? 'Batalkan pilihan semua' : 'Pilih semua yang ber-rekening'}
+                    />
+                  </th>
                   <th className="py-3 px-3 font-semibold">No</th>
                   <th className="py-3 px-3 font-semibold">Nama Siswa</th>
                   <th className="py-3 px-3 font-semibold">Jenjang</th>
@@ -313,8 +412,24 @@ export default function RekeningPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
-                {filteredAccounts.map((a, idx) => (
-                  <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
+                {filteredAccounts.map((a, idx) => {
+                  const sId = a.studentId || a.student?.id;
+                  const isEligible = a.status === 'Sudah dibuat' && !!a.accountNumber;
+                  const isChecked = selectedStudentIds.includes(sId);
+                  return (
+                  <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${isChecked ? 'bg-purple-50/40' : ''}`}>
+                    <td className="py-2.5 px-3 text-center">
+                      {isEligible ? (
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleSelect(sId)}
+                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                      ) : (
+                        <span className="text-slate-300 font-mono text-xs select-none" title="Belum memiliki nomor rekening">-</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                     <td className="py-2.5 px-3">
                       <div className="font-bold text-slate-900">{a.student?.namaLengkap}</div>
@@ -378,7 +493,8 @@ export default function RekeningPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>
@@ -713,6 +829,126 @@ export default function RekeningPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* BUATKAN TAGIHAN MODAL */}
+      {showTagihanModal && (
+        <Modal
+          isOpen={true}
+          onClose={() => setShowTagihanModal(false)}
+          title="Buatkan Tagihan (Format BSI Simpanan Program)"
+          description="Generate file Excel tagihan BSI otomatis dengan 17 Kode Produk (SPP Juli-Juni & Uang Masuk/Tahunan) sesuai jenjang dan jenis kelamin santri."
+          maxWidth="lg"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-emerald-800 text-sm">
+                <Receipt className="w-4 h-4 text-emerald-600" />
+                <span>Ketentuan Format Tagihan BSI</span>
+              </div>
+              <p className="text-emerald-700 leading-relaxed">
+                File Excel yang dihasilkan akan memuat baris tagihan per siswa dengan <strong>ID Nasabah = Nomor Rekening BSI</strong>, mencakup:
+              </p>
+              <ul className="list-disc list-inside text-emerald-800 font-medium space-y-0.5 pl-1">
+                <li>12 Bulan Iuran SPP (Kode Produk 155 - 166)</li>
+                <li>Iuran Perlengkapan, Peralatan, Buku Paket, Kegiatan Tahunan, Pembangunan (Kode Produk 167 - 171)</li>
+                <li>Besaran otomatis disesuaikan per jenjang (SMP, SMA, TK, dan SD Putra/Putri)</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-bold text-slate-800">Pilih Siswa yang Dibuatkan Tagihan:</label>
+              <div className="space-y-2">
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                    tagihanMode === 'selected'
+                      ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tagihanMode"
+                    value="selected"
+                    checked={tagihanMode === 'selected'}
+                    onChange={() => setTagihanMode('selected')}
+                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-800">
+                      Hanya Siswa yang Dicentang di Tabel ({selectedStudentIds.length} Santri)
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Cocok jika ingin membuat tagihan untuk santri tertentu saja.
+                    </p>
+                    {selectedStudentIds.length === 0 && tagihanMode === 'selected' && (
+                      <p className="text-[11px] text-amber-600 font-semibold mt-1">
+                        ⚠️ Belum ada santri yang dicentang. Silakan centang di tabel atau pilih opsi semua siswa di bawah.
+                      </p>
+                    )}
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                    tagihanMode === 'all'
+                      ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tagihanMode"
+                    value="all"
+                    checked={tagihanMode === 'all'}
+                    onChange={() => setTagihanMode('all')}
+                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-800">
+                      Semua Siswa yang Sudah Ber-Rekening ({eligibleAccounts.length} Santri)
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Otomatis mencakup seluruh santri tahun {selectedYearName} yang nomor rekeningnya sudah ada.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowTagihanModal(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadTagihan}
+                disabled={
+                  downloadingTagihan ||
+                  (tagihanMode === 'selected' && selectedStudentIds.length === 0) ||
+                  (tagihanMode === 'all' && eligibleAccounts.length === 0)
+                }
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {downloadingTagihan ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Membuat Excel Tagihan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Download Excel Tagihan</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
