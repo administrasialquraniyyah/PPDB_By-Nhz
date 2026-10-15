@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
           status: 'DRAFT',
         },
       });
+      triggerAutoBackup();
       return NextResponse.json({
         success: true,
         count: res.count,
@@ -36,6 +38,8 @@ export async function POST(request: Request) {
         status: 'ACTIVE',
       },
     });
+
+    triggerAutoBackup();
 
     return NextResponse.json({
       success: true,

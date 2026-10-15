@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { parseExcelBuffer } from '@/lib/excelParser';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -241,6 +242,10 @@ async function commitStudents({
       errors.push({ row: row.rowNumber, name: row.namaLengkap, error: err.message });
       skippedCount++;
     }
+  }
+
+  if (importedCount > 0) {
+    triggerAutoBackup();
   }
 
   return NextResponse.json({

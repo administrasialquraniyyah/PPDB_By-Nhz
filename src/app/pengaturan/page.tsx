@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   Server,
   Zap,
+  FileSpreadsheet,
+  HardDrive,
+  Download,
 } from 'lucide-react';
 
 export default function PengaturanPage() {
@@ -38,6 +41,66 @@ export default function PengaturanPage() {
   const [newYear, setNewYear] = useState('');
   const [addingYear, setAddingYear] = useState(false);
 
+  // Backup state
+  const [backupStatus, setBackupStatus] = useState<any>(null);
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState('');
+
+  const fetchBackupStatus = async () => {
+    try {
+      const res = await fetch('/api/backup?mode=status');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setBackupStatus(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch backup status:', err);
+    }
+  };
+
+  const handleManualBackup = async () => {
+    setBackingUp(true);
+    setBackupMsg('');
+    try {
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicYearId: selectedYearId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setBackupStatus(json.data);
+        setBackupMsg('File Excel backup lokal berhasil diperbarui!');
+        setTimeout(() => setBackupMsg(''), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Gagal membuat backup');
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    try {
+      const url = selectedYearId ? `/api/backup?academicYearId=${selectedYearId}` : '/api/backup';
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.href = downloadUrl;
+      a.download = `Backup_PPDB_AlQuraniyyah_${dateStr}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+      fetchBackupStatus();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchSettings = async () => {
     setLoading(true);
     try {
@@ -55,6 +118,7 @@ export default function PengaturanPage() {
 
   useEffect(() => {
     fetchSettings();
+    fetchBackupStatus();
   }, []);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -189,7 +253,134 @@ export default function PengaturanPage() {
         </div>
       </div>
 
-      {/* 2. Fee Defaults Configuration */}
+      {/* 2. Pusat Backup & Keamanan Data Lokal (Excel Master) */}
+      <div className="bg-gradient-to-br from-white via-emerald-50/20 to-teal-50/30 p-5 rounded-2xl border border-emerald-200/80 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-sm text-slate-900">Pusat Backup & Keamanan Data Lokal (Excel Master)</h2>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                  AUTO-BACKUP AKTIF
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Semua data aplikasi dihimpun ke 1 file Excel lokal (.xlsx) dengan 7 sheet lengkap.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleManualBackup}
+              disabled={backingUp}
+              className="px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${backingUp ? 'animate-spin' : ''}`} />
+              <span>{backingUp ? 'Menyimpan...' : 'Perbarui File Lokal'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadBackup}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Unduh Excel Sekarang</span>
+            </button>
+          </div>
+        </div>
+
+        {backupMsg && (
+          <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold text-emerald-900 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span>{backupMsg}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-sm">
+            <span className="text-slate-400 font-medium">Status Cadangan Otomatis:</span>
+            <div className="font-bold text-sm mt-0.5 text-emerald-700 flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              Otomatis Real-Time (Aktif)
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Tiap ada penambahan / edit data di aplikasi, file Excel lokal langsung otomatis diperbarui.
+            </p>
+          </div>
+
+          <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-sm">
+            <span className="text-slate-400 font-medium">Penyimpanan File di Komputer Anda:</span>
+            <div className="font-mono font-bold text-xs text-slate-800 mt-1 break-all bg-slate-50 p-1.5 rounded border border-slate-200">
+              D:\System PPDB\backups\PPDB_Backup_Terbaru.xlsx
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Bisa langsung dibuka di Microsoft Excel atau dicopy ke Flashdisk kapan saja.
+            </p>
+          </div>
+
+          <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-sm">
+            <span className="text-slate-400 font-medium">Riwayat & Jumlah Data:</span>
+            <div className="font-bold text-sm text-slate-800 mt-0.5">
+              {backupStatus?.totalStudents !== undefined ? `${backupStatus.totalStudents} Santri Terdata` : 'Siap Dicadangkan'}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              Terakhir update:{' '}
+              <strong className="text-slate-700">
+                {backupStatus?.lastBackupAt ? new Date(backupStatus.lastBackupAt).toLocaleString('id-ID') : 'Baru saja'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* 7 Sheets Coverage Info */}
+        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs space-y-1.5">
+          <div className="font-bold text-slate-800">
+            📊 Rincian Isi 7 Sheet di Dalam File Excel Backup:
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-slate-600 pt-1">
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">1. Ringkasan & Total:</strong>
+              <div>Rekap santri per jenjang & saldo kas PPDB</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">2. Data Santri Lengkap:</strong>
+              <div>Biodata, NIS, NIK, NISN, No HP, Ortu, Sekolah</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">3. Pembelian Formulir:</strong>
+              <div>Status lunas, tarif aktual, diskon, tanggal</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">4. Rekomendasi Santri:</strong>
+              <div>Nama perekomendasi, apresiasi, pencairan</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">5. Rekening Bank & CBS:</strong>
+              <div>No rekening BSI, status kartu & ID CBS</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">6. Daftar Ulang:</strong>
+              <div>Status DU, nominal bayar, metode bayar</div>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-slate-200">
+              <strong className="text-emerald-700">7. Pengeluaran Kas:</strong>
+              <div>Rincian operasional, nota bukti & saldo</div>
+            </div>
+            <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+              <strong className="text-emerald-800">📁 Folder Arsip:</strong>
+              <div>Salinan harian otomatis disimpan di folder /arsip</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Fee Defaults Configuration */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div className="pb-3 mb-4 border-b border-slate-100 flex items-center justify-between">
           <div>

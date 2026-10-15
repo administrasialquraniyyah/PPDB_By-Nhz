@@ -4,6 +4,7 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import DbStatusBadge from './DbStatusBadge';
 import YearSelector from './YearSelector';
+import BackupButton from './BackupButton';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -46,9 +47,10 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Right: Academic Year Selector & Database Health Indicator */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right: Academic Year Selector, Backup Button & Database Health Indicator */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <YearSelector />
+          <BackupButton />
           <DbStatusBadge />
         </div>
       </div>

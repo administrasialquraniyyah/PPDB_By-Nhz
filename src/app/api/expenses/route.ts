@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +124,8 @@ export async function POST(request: Request) {
       },
     });
 
+    triggerAutoBackup();
+
     return NextResponse.json({ success: true, data: expense, message: 'Pengeluaran berhasil dicatat' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -153,6 +156,8 @@ export async function PUT(request: Request) {
       },
     });
 
+    triggerAutoBackup();
+
     return NextResponse.json({ success: true, data: updated, message: 'Pengeluaran berhasil diperbarui' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -171,6 +176,8 @@ export async function DELETE(request: Request) {
     await prisma.expense.delete({
       where: { id },
     });
+
+    triggerAutoBackup();
 
     return NextResponse.json({ success: true, message: 'Data pengeluaran berhasil dihapus' });
   } catch (error: any) {

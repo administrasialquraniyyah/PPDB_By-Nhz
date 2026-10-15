@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,10 @@ export async function POST(request: Request) {
           notFound.push(nama);
         }
       }
+    }
+
+    if (updatedCount > 0) {
+      triggerAutoBackup();
     }
 
     return NextResponse.json({

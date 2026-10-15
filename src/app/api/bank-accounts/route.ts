@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,8 @@ export async function PUT(request: Request) {
         },
       });
     }
+
+    triggerAutoBackup();
 
     return NextResponse.json({ success: true, data: updated, message: 'Data rekening berhasil diperbarui' });
   } catch (error: any) {

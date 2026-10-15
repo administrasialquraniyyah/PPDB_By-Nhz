@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { triggerAutoBackup } from '@/lib/backupService';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,6 +174,9 @@ export async function POST(request: Request) {
         recommendation: true,
       },
     });
+
+    // Trigger background auto-backup to local Excel
+    triggerAutoBackup();
 
     return NextResponse.json({ success: true, data: student });
   } catch (error: any) {
