@@ -500,10 +500,10 @@ Terima kasih.`;
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 text-slate-600 border-b border-slate-200/80">
+            <table className="w-full text-left text-xs border-collapse min-w-[1320px]">
+              <thead className="bg-slate-50 text-slate-600 border-b border-slate-200/80 whitespace-nowrap uppercase tracking-wider text-[11px] font-semibold">
                 <tr>
-                  <th className="py-3 px-3 w-10 text-center">
+                  <th className="py-3.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
                       checked={isAllEligibleSelected}
@@ -513,17 +513,17 @@ Terima kasih.`;
                       title={isAllEligibleSelected ? 'Batalkan pilihan semua' : 'Pilih semua yang ber-rekening'}
                     />
                   </th>
-                  <th className="py-3 px-3 font-semibold">No</th>
-                  <th className="py-3 px-3 font-semibold">Nama Siswa</th>
-                  <th className="py-3 px-3 font-semibold">Jenjang</th>
-                  <th className="py-3 px-3 font-semibold">NIS / NIK</th>
-                  <th className="py-3 px-3 font-semibold">Akun Aplikasi & Kartu</th>
-                  <th className="py-3 px-3 font-semibold">Status Rekening</th>
-                  <th className="py-3 px-3 font-semibold">Nomor Rekening</th>
-                  <th className="py-3 px-3 font-semibold">ID Nasabah</th>
-                  <th className="py-3 px-3 font-semibold">Bank</th>
-                  <th className="py-3 px-3 font-semibold">Tanggal Pembuatan</th>
-                  <th className="py-3 px-3 font-semibold text-right">Aksi</th>
+                  <th className="py-3.5 px-3 w-12 text-center">No</th>
+                  <th className="py-3.5 px-4 min-w-[210px]">Nama Siswa</th>
+                  <th className="py-3.5 px-3 w-20 text-center">Jenjang</th>
+                  <th className="py-3.5 px-3 min-w-[140px]">NIS / NIK</th>
+                  <th className="py-3.5 px-4 min-w-[180px]">Akun Aplikasi & Kartu</th>
+                  <th className="py-3.5 px-3 min-w-[140px] text-center">Status Rekening</th>
+                  <th className="py-3.5 px-4 min-w-[170px]">Nomor Rekening</th>
+                  <th className="py-3.5 px-3 min-w-[140px]">ID Nasabah</th>
+                  <th className="py-3.5 px-3 min-w-[90px] text-center">Bank</th>
+                  <th className="py-3.5 px-3 min-w-[130px]">Tanggal Pembuatan</th>
+                  <th className="py-3.5 px-4 min-w-[140px] text-right pr-4">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
@@ -531,9 +531,10 @@ Terima kasih.`;
                   const sId = a.studentId || a.student?.id;
                   const isEligible = a.status === 'Sudah dibuat' && (!!a.accountNumber || !!a.idNasabah);
                   const isChecked = selectedStudentIds.includes(sId);
+                  const bankShort = a.bankName && a.bankName.includes('BSI') ? 'BSI' : (a.bankName || 'BSI');
                   return (
                   <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${isChecked ? 'bg-purple-50/40' : ''}`}>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
                       {isEligible ? (
                         <input
                           type="checkbox"
@@ -545,17 +546,17 @@ Terima kasih.`;
                         <span className="text-slate-300 font-mono text-xs select-none" title="Belum memiliki nomor rekening / ID Nasabah">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                    <td className="py-2.5 px-3">
-                      <div className="font-bold text-slate-900">{a.student?.namaLengkap}</div>
-                      {a.notes && <div className="text-[10px] text-slate-400">{a.notes}</div>}
+                    <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px] whitespace-nowrap">{idx + 1}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="font-bold text-slate-900 text-sm">{a.student?.namaLengkap}</div>
+                      {a.notes && <div className="text-[10px] text-slate-400 mt-0.5">{a.notes}</div>}
                     </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-700">
-                        {a.student?.jenjang}
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-md font-bold text-xs bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {a.student?.jenjang || '-'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-600">
+                    <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
                       {(() => {
                         const validNoInduk =
                           a.student?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(a.student.noInduk)
@@ -564,11 +565,11 @@ Terima kasih.`;
                         return validNoInduk || a.student?.nisn || a.student?.nik || '-';
                       })()}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       {a.student?.username || a.student?.password || a.student?.idKartu ? (
                         <div className="space-y-0.5 font-mono text-[11px]">
                           {a.student?.username && (
-                            <div className="text-slate-800 font-medium truncate max-w-[150px]" title={a.student.username}>
+                            <div className="text-slate-800 font-medium">
                               <span className="text-slate-400 font-sans text-[10px]">User:</span> {a.student.username}
                             </div>
                           )}
@@ -587,53 +588,59 @@ Terima kasih.`;
                         <span className="text-slate-400 text-[11px] italic">Belum diset</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                           a.status === 'Sudah dibuat'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-amber-100 text-amber-800'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200/80'
                         }`}
                       >
+                        <span className={`w-1.5 h-1.5 rounded-full ${a.status === 'Sudah dibuat' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                         {a.status}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-purple-900 text-sm">
+                    <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-purple-900 text-sm tracking-wide">
                       {a.accountNumber || '-'}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       {a.idNasabah ? (
-                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
+                        <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 text-xs">
                           {a.idNasabah}
                         </span>
                       ) : (
                         <span className="text-slate-300 font-mono text-xs">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600">{a.bankName || 'BSI'}</td>
-                    <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60" title={a.bankName || 'Bank Syariah Indonesia (BSI)'}>
+                        {bankShort}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                       {a.createdDate ? formatDate(a.createdDate) : '-'}
                     </td>
-                    <td className="py-2.5 px-3 text-right">
+                    <td className="py-3 px-4 text-right pr-4 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedCardAccount(a)}
                           title="Preview Card Santri & Draft Tagihan (Siap Screenshot)"
-                          className="p-1.5 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition border border-slate-200/60"
+                          className="p-1.5 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition border border-slate-200/60 shadow-sm"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setEditingAccount({ ...a, student: { ...a.student } })}
-                          className="px-2.5 py-1 text-slate-600 hover:text-purple-700 bg-slate-100 hover:bg-purple-50 rounded-lg font-semibold transition border border-slate-200/60"
+                          className="px-2.5 py-1.5 text-xs text-slate-700 hover:text-purple-700 bg-slate-100 hover:bg-purple-50 rounded-lg font-semibold transition border border-slate-200/60 shadow-sm flex items-center gap-1"
                         >
-                          Edit Rekening
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+                  );
+                })}
               </tbody>
             </table>
           </div>
