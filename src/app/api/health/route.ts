@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { ensureDbSchema } from '@/lib/dbInit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const start = Date.now();
   try {
+    await ensureDbSchema();
     const res: any = await prisma.$queryRawUnsafe('SELECT 1 as result, current_database() as db;');
     const latency = Date.now() - start;
     return NextResponse.json({

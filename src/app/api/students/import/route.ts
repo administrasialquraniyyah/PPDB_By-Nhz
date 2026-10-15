@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { parseExcelBuffer } from '@/lib/excelParser';
 import { triggerAutoBackup } from '@/lib/backupService';
+import { ensureDbSchema } from '@/lib/dbInit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    await ensureDbSchema();
     const contentType = request.headers.get('content-type') || '';
 
     // Handle File Upload (FormData)

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { triggerAutoBackup } from '@/lib/backupService';
+import { ensureDbSchema } from '@/lib/dbInit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    await ensureDbSchema();
     const { searchParams } = new URL(request.url);
     const academicYearId = searchParams.get('academicYearId');
     const search = searchParams.get('search')?.trim();

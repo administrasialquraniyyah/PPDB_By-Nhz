@@ -79,16 +79,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleSetSelectedYearId = (id: string) => {
+    setSelectedYearId(id);
+    if (typeof window !== 'undefined' && id) {
+      try {
+        localStorage.setItem('ppdb_selected_year_id', id);
+      } catch (e) {}
+    }
+  };
+
   const refreshYears = async () => {
     try {
       const res = await fetch('/api/academic-years');
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setAcademicYears(json.data);
-        if (!selectedYearId && json.data.length > 0) {
-          const active = json.data.find((y: AcademicYearItem) => y.isActive);
-          setSelectedYearId(active ? active.id : json.data[0].id);
+
+        // Determine the best year selection
+        let savedId: string | null = null;
+        if (typeof window !== 'undefined') {
+          try {
+            savedId = localStorage.getItem('ppdb_selected_year_id');
+          } catch (e) {}
         }
+
+        setSelectedYearId((prevId) => {
+          const existsCurrent = prevId && json.data.some((y: AcademicYearItem) => y.id === prevId);
+          if (existsCurrent) return prevId;
+
+          const existsSaved = savedId && json.data.some((y: AcademicYearItem) => y.id === savedId);
+          if (existsSaved) return savedId!;
+
+          if (json.data.length > 0) {
+            const active = json.data.find((y: AcademicYearItem) => y.isActive);
+            const fallbackId = active ? active.id : json.data[0].id;
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('ppdb_selected_year_id', fallbackId);
+              } catch (e) {}
+            }
+            return fallbackId;
+          }
+          return '';
+        });
       }
     } catch (err) {
       console.error('Error fetching academic years:', err);
@@ -111,7 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         selectedYearId,
-        setSelectedYearId,
+        setSelectedYearId: handleSetSelectedYearId,
         selectedYearName,
         academicYears,
         refreshYears,
