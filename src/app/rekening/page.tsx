@@ -171,6 +171,8 @@ export default function RekeningPage() {
   const handleCopyWhatsApp = (account: any) => {
     const s = account.student;
     const tagihan = getDraftTagihan(s?.jenjang, s?.jenisKelamin);
+    const validNoInduk = s?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(s.noInduk) ? s.noInduk : '';
+    const idSiswa = s?.nisn && validNoInduk ? `${s.nisn} (NIS: ${validNoInduk})` : s?.nisn || validNoInduk || '-';
     const text = `*KARTU INFORMASI SANTRI & DRAFT TAGIHAN AWAL*
 *PONDOK PESANTREN AL-QUR'ANIYYAH*
 Tahun Ajaran: ${selectedYearName}
@@ -178,7 +180,7 @@ Tahun Ajaran: ${selectedYearName}
 👤 *DATA SANTRI*
 • *Nama Santri:* ${s?.namaLengkap || '-'}
 • *Jenjang / Kelas:* ${s?.jenjang || '-'} (${tagihan.kelas})
-• *NIS / NISN:* ${s?.noInduk || s?.nisn || '-'}
+• *NISN / NIS:* ${idSiswa}
 • *NIK:* ${s?.nik || '-'}
 • *Orang Tua:* ${s?.namaAyah || s?.namaIbu || '-'}
 • *No. HP/WA:* ${s?.noHp || s?.noHpAyah || s?.noHpIbu || '-'}
@@ -554,7 +556,13 @@ Terima kasih.`;
                       </span>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-slate-600">
-                      {a.student?.noInduk || a.student?.nik || '-'}
+                      {(() => {
+                        const validNoInduk =
+                          a.student?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(a.student.noInduk)
+                            ? a.student.noInduk
+                            : '';
+                        return validNoInduk || a.student?.nisn || a.student?.nik || '-';
+                      })()}
                     </td>
                     <td className="py-2.5 px-3">
                       {a.student?.username || a.student?.password || a.student?.idKartu ? (
@@ -1110,9 +1118,18 @@ Terima kasih.`;
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-500 block">NIS / No. Induk / NISN:</span>
+                      <span className="text-[10px] text-slate-500 block">NISN / No. Induk (NIS):</span>
                       <span className="font-mono font-semibold text-slate-800">
-                        {student?.noInduk || student?.nisn || '-'}
+                        {(() => {
+                          const validNoInduk =
+                            student?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(student.noInduk)
+                              ? student.noInduk
+                              : '';
+                          if (student?.nisn && validNoInduk) {
+                            return `${student.nisn} (NIS: ${validNoInduk})`;
+                          }
+                          return student?.nisn || validNoInduk || '-';
+                        })()}
                       </span>
                     </div>
 

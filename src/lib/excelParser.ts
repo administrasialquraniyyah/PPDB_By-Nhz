@@ -186,7 +186,10 @@ export function parseExcelBuffer(buffer: Buffer): {
       if (!norm) continue;
       for (const a of aliases) {
         const aNorm = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (aNorm && (norm === aNorm || norm.includes(aNorm) || (aNorm.length >= 4 && aNorm.includes(norm)))) {
+        if (!aNorm) continue;
+        // Guard: 'NIS' alias must never match 'JENIS KELAMIN' or any header containing 'JENIS'
+        if (aNorm === 'NIS' && norm.includes('JENIS')) continue;
+        if (norm === aNorm || (norm.includes(aNorm) && aNorm.length >= 3 && aNorm !== 'NIS') || (aNorm.length >= 4 && aNorm.includes(norm))) {
           return idx;
         }
       }
@@ -198,7 +201,7 @@ export function parseExcelBuffer(buffer: Buffer): {
   const colNama = findCol(['NAMA', 'NAMALENGKAP', 'NAMASISWA', 'NAMASANTRI', 'NAMA_LENGKAP', 'SANTRI']);
   const colJenjang = findCol(['JENJANG', 'PROGRAM', 'TINGKAT', 'UNIT']);
   const colTahun = findCol(['TP', 'TAHUN', 'TAHUNAJARAN', 'TAHUNPELAJARAN']);
-  const colNoInduk = findCol(['NOINDUK', 'NIS', 'INDUK', 'NOMORINDUK', 'NISN_LOKAL']);
+  const colNoInduk = findCol(['NOINDUK', 'NOMORINDUK', 'NISNLOKAL', 'INDUK', 'NIS']);
   const colNik = findCol(['NIK', 'NOKTP', 'NOMORKTP']);
   const colNisn = findCol(['NISN']);
   const colJk = findCol(['LP', 'JENISKELAMIN', 'JK', 'SEX', 'GENDER']);
