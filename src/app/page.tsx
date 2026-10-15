@@ -22,18 +22,21 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { selectedYearId, selectedYearName } = useApp();
+  const { selectedYearId, setSelectedYearId, selectedYearName } = useApp();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = async () => {
-    if (!selectedYearId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?academicYearId=${selectedYearId}`);
+      const url = selectedYearId ? `/api/dashboard?academicYearId=${selectedYearId}` : '/api/dashboard';
+      const res = await fetch(url);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && json.data) {
         setData(json.data);
+        if (!selectedYearId && json.data.academicYear?.id) {
+          setSelectedYearId(json.data.academicYear.id);
+        }
       }
     } catch (err) {
       console.error('Error fetching dashboard:', err);
