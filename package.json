@@ -7,7 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start -p 3000",
     "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push"
+    "prisma:push": "prisma db push",
+    "db:repair": "node scripts/repair_and_sync_data.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
