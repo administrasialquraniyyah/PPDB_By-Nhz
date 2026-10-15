@@ -5,6 +5,7 @@ export interface ParsedStudentRow {
   namaLengkap: string;
   jenjang: string;
   tahunAjaran?: string;
+  noPendaftaran?: string;
   noInduk?: string;
   nik?: string;
   nisn?: string;
@@ -15,15 +16,24 @@ export interface ParsedStudentRow {
   email?: string;
   noHp?: string;
   alamat?: string;
+  kota?: string;
+  agama?: string;
+  golonganDarah?: string;
   asalSekolah?: string;
   alamatSekolah?: string;
   namaAyah?: string;
   noHpAyah?: string;
+  pekerjaanAyah?: string;
   namaIbu?: string;
   noHpIbu?: string;
+  pekerjaanIbu?: string;
+  namaWali?: string;
+  noHpWali?: string;
   username?: string;
   password?: string;
+  idKartu?: string;
   gelombang?: string;
+  notes?: string;
   
   // Data formulir awal dari file jika ada
   biayaFormulir?: number;
@@ -40,6 +50,23 @@ export interface ParsedStudentRow {
   raw: Record<string, any>;
   hasError: boolean;
   errors: string[];
+}
+
+export function cleanPhone(val: any): string {
+  if (val === null || val === undefined) return '';
+  let s = String(val).trim();
+  if (s.startsWith("'")) s = s.substring(1).trim();
+  // Strip spaces, dashes, dots, but keep digits
+  let digits = s.replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  // Convert 628xxx to 08xxx
+  if (digits.startsWith('628')) {
+    digits = '0' + digits.substring(2);
+  } else if (digits.startsWith('8') && digits.length >= 9 && digits.length <= 13) {
+    // Missing leading zero from Excel number formatting
+    digits = '0' + digits;
+  }
+  return digits;
 }
 
 export function normalizeDobString(val: any): string {
@@ -146,34 +173,63 @@ export function parseExcelBuffer(buffer: Buffer): {
     if (norm) headerMap[norm] = idx;
   });
 
-  // Helper to find column index from aliases
+  // Helper to find column index from aliases (exact match first, then partial match)
   const findCol = (aliases: string[]): number => {
+    // 1. Exact normalized match
     for (const a of aliases) {
       const norm = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (headerMap[norm] !== undefined) return headerMap[norm];
     }
+    // 2. Partial substring matching fallback
+    for (let idx = 0; idx < headers.length; idx++) {
+      const norm = headers[idx].toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!norm) continue;
+      for (const a of aliases) {
+        const aNorm = a.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (aNorm && (norm === aNorm || norm.includes(aNorm) || (aNorm.length >= 4 && aNorm.includes(norm)))) {
+          return idx;
+        }
+      }
+    }
     return -1;
   };
 
-  const colNama = findCol(['NAMA', 'NAMALENGKAP', 'NAMASISWA', 'NAMASANTRI']);
+  const colNoPendaftaran = findCol(['NOPENDAFTARAN', 'NOMORPENDAFTARAN', 'NOREGISTRASI', 'NOREG', 'KODEPPDB', 'REGISTRASI']);
+  const colNama = findCol(['NAMA', 'NAMALENGKAP', 'NAMASISWA', 'NAMASANTRI', 'NAMA_LENGKAP', 'SANTRI']);
   const colJenjang = findCol(['JENJANG', 'PROGRAM', 'TINGKAT', 'UNIT']);
   const colTahun = findCol(['TP', 'TAHUN', 'TAHUNAJARAN', 'TAHUNPELAJARAN']);
-  const colNoInduk = findCol(['NOINDUK', 'NIS', 'INDUK', 'NOMORINDUK']);
-  const colNik = findCol(['NIK', 'NOKTP']);
+  const colNoInduk = findCol(['NOINDUK', 'NIS', 'INDUK', 'NOMORINDUK', 'NISN_LOKAL']);
+  const colNik = findCol(['NIK', 'NOKTP', 'NOMORKTP']);
   const colNisn = findCol(['NISN']);
-  const colJk = findCol(['LP', 'JENISKELAMIN', 'JK', 'SEX']);
-  const colTempat = findCol(['TEMPATLAHIR', 'TEMPAT']);
+  const colJk = findCol(['LP', 'JENISKELAMIN', 'JK', 'SEX', 'GENDER']);
+  const colTempat = findCol(['TEMPATLAHIR', 'TEMPAT', 'TMPTLAHIR']);
   const colTanggalLahir = findCol(['TANGGALLAHIR', 'TGLLAHIR', 'TANGGAL', 'DOB', 'TANGGALLAHIRDDMMYYYY']);
-  const colTtl = findCol(['TTL', 'TEMPATLAHIRTANGGALLAHIR']);
-  const colEmail = findCol(['EMAIL', 'SUREL']);
-  const colNoHp = findCol(['NOHP', 'NOTLP', 'NOTELEPON', 'TELEPON', 'WA', 'NOWA']);
-  const colAlamat = findCol(['ALAMAT', 'DOMISILI', 'ALAMATSISWA']);
+  const colTtl = findCol(['TTL', 'TEMPATLAHIRTANGGALLAHIR', 'TEMPATDANTANGGALLAHIR']);
+  const colEmail = findCol(['EMAIL', 'SUREL', 'MAIL']);
+  const colNoHp = findCol([
+    'NOHP', 'NOTELP', 'NOTLP', 'NOTELEPON', 'TELEPON', 'TELPON', 'HP', 'TELP',
+    'WA', 'NOWA', 'WHATSAPP', 'NOWHATSAPP', 'HANDPHONE', 'NOHANDPHONE',
+    'HPWA', 'NOHPWA', 'NOWAHP', 'NOTELPWA', 'NOMORHP', 'NOMORTELEPON',
+    'NOMORTELP', 'KONTAK', 'NOKONTAK', 'NOHPSISWA', 'NOTELEPONSISWA', 'HPSISWA',
+    'NOHPORTU', 'HPORTU', 'NOTELEPONORTU', 'TELEPONORTU', 'KONTAKSISWA', 'KONTAKORTU'
+  ]);
+  const colAlamat = findCol(['ALAMAT', 'DOMISILI', 'ALAMATSISWA', 'ALAMATTINGGAL']);
+  const colKota = findCol(['KOTA', 'KABUPATEN', 'KOTAKABUPATEN', 'KAB', 'KOTATINGGAL']);
+  const colAgama = findCol(['AGAMA', 'RELIGION']);
+  const colGolDarah = findCol(['GOLONGANDARAH', 'GOLDARAH', 'GOLDAR', 'GOL_DARAH']);
   const colAsalSekolah = findCol(['ASALSEKOLAH', 'SEKOLAHASAL', 'SEKOLAH']);
   const colAlamatSekolah = findCol(['ALAMATASALSEKOLAH', 'ALAMATSEKOLAH']);
-  const colAyah = findCol(['AYAH', 'NAMAAYAH', 'ORTU']);
-  const colIbu = findCol(['IBU', 'NAMAIBU']);
-  const colUsername = findCol(['USERNAME', 'USER']);
-  const colPassword = findCol(['PASSWORD', 'PASS']);
+  const colAyah = findCol(['AYAH', 'NAMAAYAH', 'ORTU', 'ORANGTUA', 'NAMA_AYAH']);
+  const colNoHpAyah = findCol(['NOHPAYAH', 'NOTELPAYAH', 'HPAYAH', 'TELPAYAH', 'WAAYAH', 'NOWAAYAH', 'TELEPONAYAH']);
+  const colPekerjaanAyah = findCol(['PEKERJAANAYAH', 'PEKERJAANORTU', 'PEKERJAAN', 'PROFESIAYAH', 'JOBAYAH']);
+  const colIbu = findCol(['IBU', 'NAMAIBU', 'NAMA_IBU']);
+  const colNoHpIbu = findCol(['NOHPIBU', 'NOTELPIBU', 'HPIBU', 'TELPIBU', 'WAIBU', 'NOWAIBU', 'TELEPONIBU']);
+  const colPekerjaanIbu = findCol(['PEKERJAANIBU', 'PROFESIIBU', 'JOBIBU']);
+  const colNamaWali = findCol(['NAMAWALI', 'WALI', 'NAMA_WALI']);
+  const colNoHpWali = findCol(['NOHPWALI', 'NOTELPWALI', 'HPWALI', 'TELPWALI', 'WAWALI', 'TELEPONWALI']);
+  const colUsername = findCol(['USERNAME', 'USER', 'AKUN']);
+  const colPassword = findCol(['PASSWORD', 'PASS', 'KATASANDI']);
+  const colIdKartu = findCol(['IDKARTU', 'NOMORKARTU', 'NOKARTU', 'IDKARTUCBS', 'KARTU']);
   const colGelombang = findCol(['GELOMBANG', 'GEL']);
   const colBiayaForm = findCol(['BIAYAFORM', 'BIAYAFORMULIR', 'FORMULIR', 'BIAYA']);
   const colKetPemb = findCol(['KETPEMB', 'METODEFORMULIR', 'PEMBAYARANFORMULIR']);
@@ -266,11 +322,35 @@ export function parseExcelBuffer(buffer: Buffer): {
       if (!isNaN(n)) nominalDU = n;
     }
 
+    // Phone parsing with multi-field fallback and smart row scan
+    let noHp = colNoHp !== -1 ? cleanPhone(row[colNoHp]) : '';
+    const noHpAyah = colNoHpAyah !== -1 ? cleanPhone(row[colNoHpAyah]) : '';
+    const noHpIbu = colNoHpIbu !== -1 ? cleanPhone(row[colNoHpIbu]) : '';
+    const noHpWali = colNoHpWali !== -1 ? cleanPhone(row[colNoHpWali]) : '';
+
+    if (!noHp) {
+      if (noHpAyah) noHp = noHpAyah;
+      else if (noHpIbu) noHp = noHpIbu;
+      else if (noHpWali) noHp = noHpWali;
+      else {
+        // Inspect row cells for a phone pattern
+        for (let c = 0; c < row.length; c++) {
+          if (c === colNik || c === colNisn || c === colTanggalLahir || c === colBiayaForm || c === colJumlahDU) continue;
+          const candidate = cleanPhone(row[c]);
+          if ((candidate.startsWith('08') || candidate.startsWith('628')) && candidate.length >= 10 && candidate.length <= 14) {
+            noHp = candidate;
+            break;
+          }
+        }
+      }
+    }
+
     const rowObj: ParsedStudentRow = {
       rowNumber: i + 1,
       namaLengkap: cleanClean(nama),
       jenjang,
       tahunAjaran: cleanClean(tahunAjaran),
+      noPendaftaran: colNoPendaftaran !== -1 ? cleanClean(row[colNoPendaftaran]) : '',
       noInduk: colNoInduk !== -1 ? cleanClean(row[colNoInduk]) : '',
       nik: colNik !== -1 ? cleanClean(row[colNik]) : '',
       nisn: colNisn !== -1 ? cleanClean(row[colNisn]) : '',
@@ -279,14 +359,24 @@ export function parseExcelBuffer(buffer: Buffer): {
       tempatLahir: cleanClean(tempatLahir),
       tanggalLahir: cleanClean(tanggalLahir),
       email: colEmail !== -1 ? cleanClean(row[colEmail]) : '',
-      noHp: colNoHp !== -1 ? cleanClean(row[colNoHp]) : '',
+      noHp,
       alamat: colAlamat !== -1 ? cleanClean(row[colAlamat]) : '',
+      kota: colKota !== -1 ? cleanClean(row[colKota]) : '',
+      agama: colAgama !== -1 ? cleanClean(row[colAgama]) : 'Islam',
+      golonganDarah: colGolDarah !== -1 ? cleanClean(row[colGolDarah]) : '',
       asalSekolah: colAsalSekolah !== -1 ? cleanClean(row[colAsalSekolah]) : '',
       alamatSekolah: colAlamatSekolah !== -1 ? cleanClean(row[colAlamatSekolah]) : '',
       namaAyah: colAyah !== -1 ? cleanClean(row[colAyah]) : '',
+      noHpAyah,
+      pekerjaanAyah: colPekerjaanAyah !== -1 ? cleanClean(row[colPekerjaanAyah]) : '',
       namaIbu: colIbu !== -1 ? cleanClean(row[colIbu]) : '',
+      noHpIbu,
+      pekerjaanIbu: colPekerjaanIbu !== -1 ? cleanClean(row[colPekerjaanIbu]) : '',
+      namaWali: colNamaWali !== -1 ? cleanClean(row[colNamaWali]) : '',
+      noHpWali,
       username: colUsername !== -1 ? cleanClean(row[colUsername]) : '',
       password: colPassword !== -1 ? cleanClean(row[colPassword]) : '',
+      idKartu: colIdKartu !== -1 ? cleanClean(row[colIdKartu]) : '',
       gelombang: colGelombang !== -1 ? cleanClean(row[colGelombang]) || 'Gelombang 1' : 'Gelombang 1',
       biayaFormulir: biayaForm,
       ketPembFormulir: colKetPemb !== -1 ? cleanClean(row[colKetPemb]) : 'Transfer',

@@ -279,7 +279,7 @@ export default function DraftPage() {
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-slate-600">{s.gelombang}</td>
-                    <td className="py-2.5 px-3 text-slate-600 font-mono">{s.noHp || '-'}</td>
+                    <td className="py-2.5 px-3 text-slate-600 font-mono">{s.noHp || s.noHpAyah || s.noHpIbu || '-'}</td>
                     <td className="py-2.5 px-3 text-slate-700">{s.namaAyah || s.namaIbu || '-'}</td>
                     <td className="py-2.5 px-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
