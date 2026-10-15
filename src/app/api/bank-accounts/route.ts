@@ -40,6 +40,9 @@ export async function GET(request: Request) {
             nisn: true,
             nik: true,
             noHp: true,
+            username: true,
+            password: true,
+            idKartu: true,
             academicYear: true,
           },
         },
@@ -66,7 +69,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, status, accountNumber, bankName, createdDate, notes } = body;
+    const { id, status, accountNumber, bankName, createdDate, notes, student } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID rekening wajib disertakan' }, { status: 400 });
@@ -85,6 +88,18 @@ export async function PUT(request: Request) {
         student: true,
       },
     });
+
+    // Update student credentials if provided
+    if (student && updated.studentId) {
+      await prisma.student.update({
+        where: { id: updated.studentId },
+        data: {
+          ...(student.username !== undefined ? { username: student.username || null } : {}),
+          ...(student.password !== undefined ? { password: student.password || null } : {}),
+          ...(student.idKartu !== undefined ? { idKartu: student.idKartu || null } : {}),
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, data: updated, message: 'Data rekening berhasil diperbarui' });
   } catch (error: any) {

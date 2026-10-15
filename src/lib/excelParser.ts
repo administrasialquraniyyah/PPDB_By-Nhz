@@ -42,6 +42,52 @@ export interface ParsedStudentRow {
   errors: string[];
 }
 
+export function normalizeDobString(val: any): string {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (!s || s === '-') return '';
+
+  // Check if DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${day}/${month}/${year}`;
+  }
+
+  // Check if YYYY-MM-DD
+  const ymdMatch = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+
+  // Check if Excel serial date number
+  const num = Number(s);
+  if (!isNaN(num) && num > 20000 && num < 60000) {
+    const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  return s;
+}
+
 export function parseExcelBuffer(buffer: Buffer): {
   sheets: string[];
   selectedSheet: string;
@@ -116,7 +162,9 @@ export function parseExcelBuffer(buffer: Buffer): {
   const colNik = findCol(['NIK', 'NOKTP']);
   const colNisn = findCol(['NISN']);
   const colJk = findCol(['LP', 'JENISKELAMIN', 'JK', 'SEX']);
-  const colTtl = findCol(['TTL', 'TEMPATLAHIR', 'TEMPATLAHIRTANGGALLAHIR']);
+  const colTempat = findCol(['TEMPATLAHIR', 'TEMPAT']);
+  const colTanggalLahir = findCol(['TANGGALLAHIR', 'TGLLAHIR', 'TANGGAL', 'DOB', 'TANGGALLAHIRDDMMYYYY']);
+  const colTtl = findCol(['TTL', 'TEMPATLAHIRTANGGALLAHIR']);
   const colEmail = findCol(['EMAIL', 'SUREL']);
   const colNoHp = findCol(['NOHP', 'NOTLP', 'NOTELEPON', 'TELEPON', 'WA', 'NOWA']);
   const colAlamat = findCol(['ALAMAT', 'DOMISILI', 'ALAMATSISWA']);
@@ -177,21 +225,31 @@ export function parseExcelBuffer(buffer: Buffer): {
       tahunAjaran = `${tahunAjaran}/${nextY}`;
     }
 
+    const cleanClean = (val: any) => {
+      if (val === null || val === undefined) return '';
+      let s = String(val).trim();
+      if (s.startsWith("'")) s = s.substring(1);
+      return s === '-' ? '' : s;
+    };
+
     let rawJk = colJk !== -1 ? String(row[colJk] || '').trim().toUpperCase() : '';
     let jk = '';
     if (rawJk.startsWith('L') || rawJk === 'LAKI-LAKI') jk = 'L';
     else if (rawJk.startsWith('P') || rawJk === 'PEREMPUAN') jk = 'P';
 
-    // Parse TTL if separate or combined
+    // Parse TTL: Check separate columns first, fallback to combined
     const ttlRaw = colTtl !== -1 ? String(row[colTtl] || '').trim() : '';
-    let tempatLahir = '';
-    let tanggalLahir = '';
-    if (ttlRaw.includes(',')) {
-      const parts = ttlRaw.split(',');
-      tempatLahir = parts[0]?.trim() || '';
-      tanggalLahir = parts.slice(1).join(',').trim() || '';
-    } else {
-      tempatLahir = ttlRaw;
+    let tempatLahir = colTempat !== -1 ? cleanClean(row[colTempat]) : '';
+    let tanggalLahir = colTanggalLahir !== -1 ? normalizeDobString(row[colTanggalLahir]) : '';
+
+    if (!tempatLahir || !tanggalLahir) {
+      if (ttlRaw.includes(',')) {
+        const parts = ttlRaw.split(',');
+        if (!tempatLahir) tempatLahir = parts[0]?.trim() || '';
+        if (!tanggalLahir) tanggalLahir = normalizeDobString(parts.slice(1).join(',').trim());
+      } else if (!tempatLahir && ttlRaw) {
+        tempatLahir = ttlRaw;
+      }
     }
 
     // Parse biaya formulir
@@ -207,13 +265,6 @@ export function parseExcelBuffer(buffer: Buffer): {
       const n = Number(String(row[colJumlahDU]).replace(/[^0-9]/g, ''));
       if (!isNaN(n)) nominalDU = n;
     }
-
-    const cleanClean = (val: any) => {
-      if (val === null || val === undefined) return '';
-      let s = String(val).trim();
-      if (s.startsWith("'")) s = s.substring(1);
-      return s === '-' ? '' : s;
-    };
 
     const rowObj: ParsedStudentRow = {
       rowNumber: i + 1,

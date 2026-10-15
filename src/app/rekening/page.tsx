@@ -36,6 +36,7 @@ export default function RekeningPage() {
   const [validationData, setValidationData] = useState<any>(null);
   const [validating, setValidating] = useState(false);
   const [exportJenjang, setExportJenjang] = useState('');
+  const [startCardId, setStartCardId] = useState('1480001301');
 
   // Mass Import Modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -79,7 +80,9 @@ export default function RekeningPage() {
     return (
       a.student?.namaLengkap?.toLowerCase().includes(q) ||
       a.accountNumber?.toLowerCase().includes(q) ||
-      a.student?.noInduk?.toLowerCase().includes(q)
+      a.student?.noInduk?.toLowerCase().includes(q) ||
+      a.student?.username?.toLowerCase().includes(q) ||
+      a.student?.idKartu?.toLowerCase().includes(q)
     );
   });
 
@@ -111,6 +114,7 @@ export default function RekeningPage() {
     params.append('statusRekening', 'Belum dibuat');
     params.append('mode', 'download');
     if (exportJenjang) params.append('jenjang', exportJenjang);
+    if (startCardId) params.append('startCardId', startCardId.trim());
 
     window.open(`/api/bank-accounts/export?${params.toString()}`, '_blank');
     setShowExportModal(false);
@@ -291,6 +295,7 @@ export default function RekeningPage() {
                   <th className="py-3 px-3 font-semibold">Nama Siswa</th>
                   <th className="py-3 px-3 font-semibold">Jenjang</th>
                   <th className="py-3 px-3 font-semibold">NIS / NIK</th>
+                  <th className="py-3 px-3 font-semibold">Akun Aplikasi & Kartu</th>
                   <th className="py-3 px-3 font-semibold">Status Rekening</th>
                   <th className="py-3 px-3 font-semibold">Nomor Rekening</th>
                   <th className="py-3 px-3 font-semibold">Bank</th>
@@ -315,6 +320,29 @@ export default function RekeningPage() {
                       {a.student?.noInduk || a.student?.nik || '-'}
                     </td>
                     <td className="py-2.5 px-3">
+                      {a.student?.username || a.student?.password || a.student?.idKartu ? (
+                        <div className="space-y-0.5 font-mono text-[11px]">
+                          {a.student?.username && (
+                            <div className="text-slate-800 font-medium truncate max-w-[150px]" title={a.student.username}>
+                              <span className="text-slate-400 font-sans text-[10px]">User:</span> {a.student.username}
+                            </div>
+                          )}
+                          {a.student?.password && (
+                            <div className="text-slate-600 text-[10px]">
+                              <span className="text-slate-400 font-sans text-[9px]">Pass:</span> {a.student.password}
+                            </div>
+                          )}
+                          {a.student?.idKartu && (
+                            <div className="text-purple-700 font-bold text-[10px]">
+                              <span className="text-purple-400 font-sans text-[9px]">Kartu:</span> {a.student.idKartu}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[11px] italic">Belum diset</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           a.status === 'Sudah dibuat'
@@ -334,7 +362,7 @@ export default function RekeningPage() {
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       <button
-                        onClick={() => setEditingAccount({ ...a })}
+                        onClick={() => setEditingAccount({ ...a, student: { ...a.student } })}
                         className="px-2.5 py-1 text-slate-600 hover:text-purple-700 bg-slate-100 hover:bg-purple-50 rounded-lg font-semibold transition"
                       >
                         Edit Rekening
@@ -434,6 +462,23 @@ export default function RekeningPage() {
                 )}
               </div>
             ) : null}
+
+            {/* Input Acuan Nomor ID Kartu Awal */}
+            <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-1">
+              <label className="block font-bold text-slate-800 text-xs">
+                💳 Acuan Nomor ID Kartu Awal:
+              </label>
+              <input
+                type="text"
+                value={startCardId}
+                onChange={(e) => setStartCardId(e.target.value)}
+                placeholder="Contoh: 1480001301"
+                className="w-full px-3 py-2 border border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-sm text-purple-900 bg-white"
+              />
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Nomor kartu awal ini akan diisikan ke kolom <strong>ID kartu</strong> dan diurutkan otomatis (+1 per siswa berikutnya) pada template CBS.
+              </p>
+            </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button
@@ -576,6 +621,58 @@ export default function RekeningPage() {
                     setEditingAccount({ ...editingAccount, createdDate: e.target.value })
                   }
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Akun Aplikasi & ID Kartu Siswa */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="font-bold text-slate-800 text-[11px]">Akun Aplikasi Santri & ID Kartu</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Username Aplikasi</label>
+                  <input
+                    type="text"
+                    value={editingAccount.student?.username || ''}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        student: { ...editingAccount.student, username: e.target.value },
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                    placeholder="Username / Email"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Password Aplikasi</label>
+                  <input
+                    type="text"
+                    value={editingAccount.student?.password || ''}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        student: { ...editingAccount.student, password: e.target.value },
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                    placeholder="Password"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-600 mb-0.5">ID Kartu Bank / CBS</label>
+                <input
+                  type="text"
+                  value={editingAccount.student?.idKartu || ''}
+                  onChange={(e) =>
+                    setEditingAccount({
+                      ...editingAccount,
+                      student: { ...editingAccount.student, idKartu: e.target.value },
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-purple-900"
+                  placeholder="Contoh: 1480001301"
                 />
               </div>
             </div>

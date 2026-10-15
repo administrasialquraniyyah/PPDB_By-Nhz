@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
+import { normalizeDobString } from '@/lib/excelParser';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
     const jenjang = searchParams.get('jenjang');
     const statusRekening = searchParams.get('statusRekening') || 'Belum dibuat'; // default export yang belum dibuat
     const mode = searchParams.get('mode') || 'download'; // 'validate' | 'download'
+    const startCardIdParam = searchParams.get('startCardId')?.trim();
 
     const where: any = {
       status: 'ACTIVE',
@@ -95,24 +97,47 @@ export async function GET(request: Request) {
       'Nama Ibu',
     ];
 
-    const rows = students.map((s) => {
-      // Clean date format dd/mm/yyyy
-      let formattedDob = s.tanggalLahir || '';
-      if (formattedDob) {
-        // try to parse if standard date
-        const d = new Date(formattedDob);
-        if (!isNaN(d.getTime())) {
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          formattedDob = `${day}/${month}/${year}`;
+    let cardCounter: bigint | null = null;
+    let cardPrefix = '';
+    let cardDigits = 0;
+
+    if (startCardIdParam) {
+      const match = startCardIdParam.match(/^(\D*)(\d+)$/);
+      if (match) {
+        cardPrefix = match[1] || '';
+        cardDigits = match[2].length;
+        cardCounter = BigInt(match[2]);
+      }
+    }
+
+    const rows: any[][] = [];
+
+    for (const s of students) {
+      const formattedDob = normalizeDobString(s.tanggalLahir);
+
+      let cardId = s.idKartu || '';
+      if (cardCounter !== null) {
+        const numStr = cardCounter.toString().padStart(cardDigits, '0');
+        cardId = `${cardPrefix}${numStr}`;
+        cardCounter = cardCounter + BigInt(1);
+
+        // Persist to database so subsequent exports keep this ID
+        if (s.idKartu !== cardId) {
+          try {
+            await prisma.student.update({
+              where: { id: s.id },
+              data: { idKartu: cardId },
+            });
+          } catch (e) {
+            console.error('Failed to update student idKartu:', e);
+          }
         }
       }
 
       const jkFull = s.jenisKelamin === 'L' ? 'Laki-laki' : s.jenisKelamin === 'P' ? 'Perempuan' : '';
       const tahunMasuk = s.academicYear?.name ? s.academicYear.name.split('/')[0] : '2026';
 
-      return [
+      rows.push([
         s.nisn || s.noInduk || '',
         s.noInduk || s.nisn || '',
         s.namaLengkap,
@@ -126,15 +151,15 @@ export async function GET(request: Request) {
         s.noHp || s.noHpAyah || s.noHpIbu || '',
         s.email || '',
         tahunMasuk,
-        s.idKartu || '',
+        cardId,
         s.namaAyah || s.namaWali || 'Wali Siswa',
         s.noHpAyah || s.noHp || '',
         s.namaIbu || '',
         s.noHpIbu || '',
         'YA',
         s.namaIbu || '',
-      ];
-    });
+      ]);
+    }
 
     const worksheetData = [headers, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
