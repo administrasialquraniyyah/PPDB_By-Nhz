@@ -101,6 +101,15 @@ export default function RekeningPage() {
       if (json.success) {
         setValidationData(json);
       }
+
+      // Load saved default ID kartu setting if available
+      try {
+        const sRes = await fetch('/api/settings');
+        const sJson = await sRes.json();
+        if (sJson.data?.default_id_kartu) {
+          setStartCardId(sJson.data.default_id_kartu);
+        }
+      } catch (e) {}
     } catch (err) {
       console.error(err);
     } finally {

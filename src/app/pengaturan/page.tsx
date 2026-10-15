@@ -282,6 +282,25 @@ export default function PengaturanPage() {
             </div>
           </div>
 
+          <div className="font-bold text-slate-800 text-xs pt-2">C. Format & Nomor Kartu Bank CBS (BSI)</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">
+                Acuan Nomor ID Kartu Awal (Default)
+              </label>
+              <input
+                type="text"
+                value={settingsMap.default_id_kartu || '1480001301'}
+                onChange={(e) => setSettingsMap({ ...settingsMap, default_id_kartu: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-purple-900"
+                placeholder="Contoh: 1480001301"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Nomor acuan default untuk kolom ID Kartu saat export template CBS.
+              </p>
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2">
             <button
               type="submit"
