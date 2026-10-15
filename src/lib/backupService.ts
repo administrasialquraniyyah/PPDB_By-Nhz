@@ -460,6 +460,7 @@ export async function saveLocalExcelBackup(academicYearId?: string): Promise<Bac
 
   let latestFilePath = '';
   let archiveFilePath = '';
+  const nowIso = new Date().toISOString();
 
   try {
     const backupDir = path.join(process.cwd(), 'backups');
@@ -482,7 +483,6 @@ export async function saveLocalExcelBackup(academicYearId?: string): Promise<Bac
   fs.writeFileSync(archiveFilePath, buffer);
 
   // 3. Write metadata file for UI indicator
-  const nowIso = new Date().toISOString();
   const meta = {
     lastBackupAt: nowIso,
     totalStudents: stats.totalStudents,
