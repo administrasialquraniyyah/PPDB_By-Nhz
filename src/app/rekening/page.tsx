@@ -28,6 +28,10 @@ import {
   User,
   ShieldCheck,
   Phone,
+  Plus,
+  Trash2,
+  RotateCcw,
+  Percent,
 } from 'lucide-react';
 
 export default function RekeningPage() {
@@ -58,6 +62,11 @@ export default function RekeningPage() {
   // Preview Card Modal (Siap Screenshot untuk Wali Santri)
   const [selectedCardAccount, setSelectedCardAccount] = useState<any>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [customTagihanItems, setCustomTagihanItems] = useState<
+    Array<{ id: string; nama: string; nominal: number; isDiscount?: boolean }>
+  >([]);
+  const [customKelas, setCustomKelas] = useState<string>('');
+  const [selectedGelombang, setSelectedGelombang] = useState<string>('Gelombang 1');
 
   // Mass Import Modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -110,70 +119,120 @@ export default function RekeningPage() {
     );
   });
 
-  const getDraftTagihan = (jenjang: string, jk?: string) => {
+  const getDraftTagihan = (jenjang: string, jk?: string, gelombang?: string) => {
     const j = (jenjang || 'SMP').toUpperCase();
     const isP = (jk || '').toUpperCase().startsWith('P');
+    const gNorm = (gelombang || '').toLowerCase();
+
+    // Diskon Gelombang: Gelombang 1 = 20%, Gelombang 2 = 10%
+    let diskonPersen = 0;
+    if (gNorm.includes('1') || gNorm.includes('satu')) {
+      diskonPersen = 20;
+    } else if (gNorm.includes('2') || gNorm.includes('dua')) {
+      diskonPersen = 10;
+    }
+
+    let kelas = 'Kelas 7 SMP IT';
+    let uangPembangunan = 6000000;
+    let baseItems: Array<{ id: string; nama: string; nominal: number; isDiscount?: boolean }> = [];
+
     if (j.includes('SMA')) {
-      return {
-        kelas: 'Kelas 10 SMA IT',
-        items: [
-          { nama: 'SPP Bulan Juli', nominal: 1650000 },
-          { nama: 'Perlengkapan Santri', nominal: 3600000 },
-          { nama: 'Kegiatan Tahunan', nominal: 1000000 },
-          { nama: 'Peralatan Santri', nominal: 2100000 },
-          { nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
-          { nama: 'Uang Pembangunan / Gedung', nominal: 6000000 },
-        ],
-        total: 16450000,
-      };
-    }
-    if (j.includes('SD')) {
+      kelas = 'Kelas 10 SMA IT';
+      uangPembangunan = 6000000;
+      baseItems = [
+        { id: 'spp', nama: 'SPP Bulan Juli', nominal: 1650000 },
+        { id: 'perlengkapan', nama: 'Perlengkapan Santri', nominal: 3600000 },
+        { id: 'kegiatan', nama: 'Kegiatan Tahunan', nominal: 1000000 },
+        { id: 'peralatan', nama: 'Peralatan Santri', nominal: 2100000 },
+        { id: 'buku', nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
+        { id: 'pembangunan', nama: 'Uang Pembangunan / Gedung', nominal: uangPembangunan },
+      ];
+    } else if (j.includes('SD')) {
+      kelas = 'Kelas 1 SD IT';
       const perlengkapan = isP ? 1450000 : 1300000;
-      const total = 550000 + perlengkapan + 100000 + 1600000 + 2300000 + 5500000;
-      return {
-        kelas: 'Kelas 1 SD IT',
-        items: [
-          { nama: 'SPP Bulan Juli', nominal: 550000 },
-          { nama: `Perlengkapan Santri (${isP ? 'Putri' : 'Putra'})`, nominal: perlengkapan },
-          { nama: 'Kegiatan Tahunan', nominal: 100000 },
-          { nama: 'Peralatan Santri', nominal: 1600000 },
-          { nama: 'Buku Paket Pembelajaran', nominal: 2300000 },
-          { nama: 'Uang Pembangunan / Gedung', nominal: 5500000 },
-        ],
-        total,
-      };
+      uangPembangunan = 5500000;
+      baseItems = [
+        { id: 'spp', nama: 'SPP Bulan Juli', nominal: 550000 },
+        { id: 'perlengkapan', nama: `Perlengkapan Santri (${isP ? 'Putri' : 'Putra'})`, nominal: perlengkapan },
+        { id: 'kegiatan', nama: 'Kegiatan Tahunan', nominal: 100000 },
+        { id: 'peralatan', nama: 'Peralatan Santri', nominal: 1600000 },
+        { id: 'buku', nama: 'Buku Paket Pembelajaran', nominal: 2300000 },
+        { id: 'pembangunan', nama: 'Uang Pembangunan / Gedung', nominal: uangPembangunan },
+      ];
+    } else if (j.includes('TK') || j.includes('PAUD')) {
+      kelas = 'Kelas TK A IT';
+      uangPembangunan = 1500000;
+      baseItems = [
+        { id: 'spp', nama: 'SPP Bulan Juli', nominal: 400000 },
+        { id: 'perlengkapan', nama: 'Perlengkapan Santri', nominal: 1050000 },
+        { id: 'peralatan', nama: 'Peralatan Santri', nominal: 700000 },
+        { id: 'buku', nama: 'Buku Paket Pembelajaran', nominal: 1000000 },
+        { id: 'pembangunan', nama: 'Uang Pembangunan / Gedung', nominal: uangPembangunan },
+      ];
+    } else {
+      // Default SMP
+      kelas = 'Kelas 7 SMP IT';
+      uangPembangunan = 6000000;
+      baseItems = [
+        { id: 'spp', nama: 'SPP Bulan Juli', nominal: 1600000 },
+        { id: 'perlengkapan', nama: 'Perlengkapan Santri', nominal: 3300000 },
+        { id: 'kegiatan', nama: 'Kegiatan Tahunan', nominal: 900000 },
+        { id: 'peralatan', nama: 'Peralatan Santri', nominal: 1950000 },
+        { id: 'buku', nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
+        { id: 'pembangunan', nama: 'Uang Pembangunan / Gedung', nominal: uangPembangunan },
+      ];
     }
-    if (j.includes('TK') || j.includes('PAUD')) {
-      return {
-        kelas: 'Kelas TK A IT',
-        items: [
-          { nama: 'SPP Bulan Juli', nominal: 400000 },
-          { nama: 'Perlengkapan Santri', nominal: 1050000 },
-          { nama: 'Peralatan Santri', nominal: 700000 },
-          { nama: 'Buku Paket Pembelajaran', nominal: 1000000 },
-          { nama: 'Uang Pembangunan / Gedung', nominal: 1500000 },
-        ],
-        total: 4650000,
-      };
+
+    if (diskonPersen > 0) {
+      const potongan = Math.round((uangPembangunan * diskonPersen) / 100);
+      const gelLabel = diskonPersen === 20 ? 'Gelombang 1' : 'Gelombang 2';
+      baseItems.push({
+        id: 'diskon-gelombang',
+        nama: `Potongan ${gelLabel} (Diskon ${diskonPersen}% Uang Pembangunan)`,
+        nominal: -potongan,
+        isDiscount: true,
+      });
     }
-    // Default SMP
+
+    const total = baseItems.reduce((acc, it) => acc + (Number(it.nominal) || 0), 0);
+
     return {
-      kelas: 'Kelas 7 SMP IT',
-      items: [
-        { nama: 'SPP Bulan Juli', nominal: 1600000 },
-        { nama: 'Perlengkapan Santri', nominal: 3300000 },
-        { nama: 'Kegiatan Tahunan', nominal: 900000 },
-        { nama: 'Peralatan Santri', nominal: 1950000 },
-        { nama: 'Buku Paket Pembelajaran', nominal: 2100000 },
-        { nama: 'Uang Pembangunan / Gedung', nominal: 6000000 },
-      ],
-      total: 15850000,
+      kelas,
+      items: baseItems,
+      total,
+      diskonPersen,
+      uangPembangunan,
     };
   };
 
-  const handleCopyWhatsApp = (account: any) => {
+  const openCardModal = (account: any) => {
     const s = account.student;
-    const tagihan = getDraftTagihan(s?.jenjang, s?.jenisKelamin);
+    const gel = s?.gelombang || 'Gelombang 1';
+    const initial = getDraftTagihan(s?.jenjang, s?.jenisKelamin, gel);
+    setCustomTagihanItems(initial.items);
+    setCustomKelas(initial.kelas);
+    setSelectedGelombang(gel);
+    setSelectedCardAccount(account);
+  };
+
+  const handleChangeGelombang = (newGel: string) => {
+    setSelectedGelombang(newGel);
+    const s = selectedCardAccount?.student;
+    const updated = getDraftTagihan(s?.jenjang, s?.jenisKelamin, newGel);
+    setCustomTagihanItems(updated.items);
+  };
+
+  const handleResetTagihan = () => {
+    const s = selectedCardAccount?.student;
+    const def = getDraftTagihan(s?.jenjang, s?.jenisKelamin, selectedGelombang || s?.gelombang);
+    setCustomTagihanItems(def.items);
+  };
+
+  const handleCopyWhatsApp = (account: any, items?: any[], totalVal?: number, kelasName?: string) => {
+    const s = account.student;
+    const tagihanItems = items || customTagihanItems;
+    const total = totalVal !== undefined ? totalVal : tagihanItems.reduce((acc, it) => acc + (Number(it.nominal) || 0), 0);
+    const kelas = kelasName || customKelas || 'Kelas 7 SMP IT';
     const validNoInduk = s?.noInduk && !/^(p|l|perempuan|laki-laki)$/i.test(s.noInduk) ? s.noInduk : '';
     const idSiswa = s?.nisn && validNoInduk ? `${s.nisn} (NIS: ${validNoInduk})` : s?.nisn || validNoInduk || '-';
     const text = `*KARTU INFORMASI SANTRI & DRAFT TAGIHAN AWAL*
@@ -182,7 +241,8 @@ Tahun Ajaran: ${selectedYearName}
 ─────────────────────────────
 👤 *DATA SANTRI*
 • *Nama Santri:* ${s?.namaLengkap || '-'}
-• *Jenjang / Kelas:* ${s?.jenjang || '-'} (${tagihan.kelas})
+• *Jenjang / Kelas:* ${s?.jenjang || '-'} (${kelas})
+• *Gelombang Pendaftaran:* ${s?.gelombang || selectedGelombang || '-'}
 • *NISN / NIS:* ${idSiswa}
 • *NIK:* ${s?.nik || '-'}
 • *Orang Tua:* ${s?.namaAyah || s?.namaIbu || '-'}
@@ -197,9 +257,11 @@ Tahun Ajaran: ${selectedYearName}
 • *Password Aplikasi:* ${s?.password || '-'}
 
 📋 *DRAFT ESTIMASI TAGIHAN AWAL*
-${tagihan.items.map((it) => `• ${it.nama}: Rp ${it.nominal.toLocaleString('id-ID')}`).join('\n')}
+${tagihanItems
+  .map((it) => `• ${it.nama}: ${it.nominal < 0 ? `-Rp ${Math.abs(it.nominal).toLocaleString('id-ID')}` : `Rp ${it.nominal.toLocaleString('id-ID')}`}`)
+  .join('\n')}
 ─────────────────────────────
-💰 *TOTAL ESTIMASI:* Rp ${tagihan.total.toLocaleString('id-ID')}
+💰 *TOTAL ESTIMASI:* Rp ${total.toLocaleString('id-ID')}
 
 📌 *Catatan:*
 Pembayaran tagihan dapat disalurkan melalui Nomor Rekening / Virtual Account BSI di atas. Simpan bukti transfer untuk verifikasi.
@@ -634,7 +696,7 @@ Terima kasih.`;
                     <td className="py-3 px-4 text-right pr-4 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => setSelectedCardAccount(a)}
+                          onClick={() => openCardModal(a)}
                           title="Preview Card Santri & Draft Tagihan (Siap Screenshot)"
                           className="p-1.5 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition border border-slate-200/60 shadow-sm"
                         >
@@ -1016,7 +1078,16 @@ Terima kasih.`;
       {/* PREVIEW CARD SANTRI & DRAFT TAGIHAN AWAL (SIAP SCREENSHOT) */}
       {selectedCardAccount && (() => {
         const student = selectedCardAccount.student;
-        const tagihan = getDraftTagihan(student?.jenjang, student?.jenisKelamin);
+        const totalTagihan = customTagihanItems.reduce(
+          (acc, it) => acc + (Number(it.nominal) || 0),
+          0
+        );
+        const diskonItem = customTagihanItems.find((it) => it.isDiscount || it.nominal < 0);
+        const hasDiscount = !!diskonItem;
+        const currentGel = selectedGelombang || student?.gelombang || '';
+        const isGel1 = currentGel.toLowerCase().includes('1');
+        const isGel2 = currentGel.toLowerCase().includes('2');
+
         return (
           <Modal
             isOpen={true}
@@ -1044,6 +1115,15 @@ Terima kasih.`;
                     box-shadow: none !important;
                     border: 1px solid #10b981 !important;
                   }
+                  .no-print {
+                    display: none !important;
+                  }
+                  input {
+                    border: none !important;
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    padding-right: 0 !important;
+                  }
                 }
               `}</style>
 
@@ -1056,7 +1136,7 @@ Terima kasih.`;
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleCopyWhatsApp(selectedCardAccount)}
+                    onClick={() => handleCopyWhatsApp(selectedCardAccount, customTagihanItems, totalTagihan, customKelas)}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm transition text-xs"
                   >
                     {copySuccess ? (
@@ -1131,8 +1211,27 @@ Terima kasih.`;
                     <div>
                       <span className="text-[10px] text-slate-500 block">Jenjang & Kelas:</span>
                       <span className="font-bold text-purple-900">
-                        {student?.jenjang || '-'} ({tagihan.kelas})
+                        {student?.jenjang || '-'} ({customKelas})
                       </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">Gelombang Pendaftaran:</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="font-bold text-slate-900 font-mono">
+                          {selectedGelombang || student?.gelombang || 'Gelombang 1'}
+                        </span>
+                        {isGel1 && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                            Diskon 20% Pembangunan
+                          </span>
+                        )}
+                        {isGel2 && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                            Diskon 10% Pembangunan
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -1242,44 +1341,199 @@ Terima kasih.`;
                 </div>
 
                 {/* Section 3: Draft Rincian Tagihan Awal */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-100/90 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between">
-                    <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                      <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Draft Rincian Tagihan Awal Tahun Ajaran</span>
+                <div className="border border-slate-200 rounded-xl overflow-hidden space-y-0">
+                  <div className="bg-slate-100/90 px-3.5 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <span className="font-bold text-slate-800 text-xs">Draft Rincian Tagihan Awal Tahun Ajaran</span>
+                        <span className="text-[10px] text-slate-500 font-semibold block sm:inline sm:ml-2">
+                          ({student?.jenjang || ''} - {customKelas})
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-semibold">
-                      Standar Pembayaran Awal {student?.jenjang || ''}
-                    </span>
+
+                    {/* Controls (no-print) */}
+                    <div className="flex items-center gap-1.5 no-print">
+                      {/* Gelombang Switcher */}
+                      <div className="flex items-center bg-white rounded-lg p-0.5 border border-slate-200 shadow-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleChangeGelombang('Gelombang 1')}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                            isGel1 ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Gelombang 1: Diskon 20% Uang Pembangunan"
+                        >
+                          Gel. 1 (-20%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChangeGelombang('Gelombang 2')}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                            isGel2 ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Gelombang 2: Diskon 10% Uang Pembangunan"
+                        >
+                          Gel. 2 (-10%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChangeGelombang('Reguler')}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                            !isGel1 && !isGel2 ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                          title="Reguler / Tanpa Diskon (0%)"
+                        >
+                          Reguler (0%)
+                        </button>
+                      </div>
+
+                      {/* Reset to Default */}
+                      <button
+                        type="button"
+                        onClick={handleResetTagihan}
+                        title="Reset nominal kembali ke standar awal"
+                        className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition shadow-xs"
+                      >
+                        <RotateCcw className="w-3 h-3 text-slate-500" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Active Discount Alert Banner */}
+                  {hasDiscount && (
+                    <div className="bg-emerald-50/80 border-b border-emerald-100 px-3.5 py-2 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🎁</span>
+                        <div className="text-[11px] text-emerald-900 leading-tight">
+                          <span className="font-bold">
+                            Diskon {isGel1 ? '20%' : isGel2 ? '10%' : ''} Uang Pembangunan Aktif
+                          </span>
+                          <span className="text-emerald-700 block text-[10px]">
+                            Santri terdaftar pada {selectedGelombang || student?.gelombang || 'Gelombang 1'}, otomatis mendapatkan potongan harga.
+                          </span>
+                        </div>
+                      </div>
+                      <span className="bg-emerald-600 text-white font-mono font-bold text-[11px] px-2 py-0.5 rounded-md shrink-0">
+                        Hemat Rp {Math.abs(diskonItem?.nominal || 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )}
 
                   <table className="w-full text-xs">
                     <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[11px]">
                       <tr>
-                        <th className="py-1.5 px-3 w-8 text-center font-semibold">No</th>
-                        <th className="py-1.5 px-3 text-left font-semibold">Komponen Pembayaran</th>
-                        <th className="py-1.5 px-3 text-right font-semibold">Nominal</th>
+                        <th className="py-2 px-3 w-8 text-center font-semibold">No</th>
+                        <th className="py-2 px-3 text-left font-semibold">Komponen Pembayaran</th>
+                        <th className="py-2 px-3 text-right font-semibold">Nominal</th>
+                        <th className="py-2 px-2 w-8 text-center font-semibold no-print"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {tagihan.items.map((it, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50">
-                          <td className="py-1.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                      {customTagihanItems.map((it, i) => (
+                        <tr
+                          key={it.id || i}
+                          className={`group hover:bg-slate-50/80 transition-colors ${
+                            it.isDiscount || it.nominal < 0 ? 'bg-emerald-50/30' : ''
+                          }`}
+                        >
+                          <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
                             {i + 1}
                           </td>
-                          <td className="py-1.5 px-3 font-medium text-slate-800">{it.nama}</td>
-                          <td className="py-1.5 px-3 text-right font-mono font-semibold text-slate-900">
-                            Rp {it.nominal.toLocaleString('id-ID')}
+                          <td className="py-2 px-3">
+                            <input
+                              type="text"
+                              value={it.nama}
+                              onChange={(e) => {
+                                const newItems = [...customTagihanItems];
+                                newItems[i].nama = e.target.value;
+                                setCustomTagihanItems(newItems);
+                              }}
+                              className={`w-full bg-transparent border-0 hover:bg-slate-100/60 focus:bg-white focus:ring-1 focus:ring-purple-400 rounded px-1.5 py-0.5 text-xs ${
+                                it.isDiscount || it.nominal < 0
+                                  ? 'font-bold text-emerald-800'
+                                  : 'font-medium text-slate-800'
+                              }`}
+                              title="Klik untuk mengubah nama komponen tagihan"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <span
+                                className={`text-xs font-mono font-bold ${
+                                  it.isDiscount || it.nominal < 0 ? 'text-emerald-700' : 'text-slate-400'
+                                }`}
+                              >
+                                {it.isDiscount || it.nominal < 0 ? '-Rp' : 'Rp'}
+                              </span>
+                              <input
+                                type="number"
+                                value={it.isDiscount || it.nominal < 0 ? Math.abs(it.nominal) : it.nominal}
+                                onChange={(e) => {
+                                  const rawVal = Number(e.target.value) || 0;
+                                  const newItems = [...customTagihanItems];
+                                  newItems[i].nominal =
+                                    it.isDiscount || it.nominal < 0 ? -Math.abs(rawVal) : rawVal;
+                                  setCustomTagihanItems(newItems);
+                                }}
+                                className={`w-28 sm:w-32 py-1 px-2 text-right font-mono font-bold text-xs sm:text-sm rounded-lg border transition-all ${
+                                  it.isDiscount || it.nominal < 0
+                                    ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 font-extrabold'
+                                    : 'bg-white border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 hover:border-slate-300 shadow-xs'
+                                } [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                title="Klik untuk mengubah nominal secara manual"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-center no-print">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newItems = customTagihanItems.filter((_, idx) => idx !== i);
+                                setCustomTagihanItems(newItems);
+                              }}
+                              title="Hapus komponen ini"
+                              className="opacity-0 group-hover:opacity-100 hover:text-rose-600 text-slate-400 p-1 transition rounded hover:bg-rose-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       ))}
+
+                      {/* Add Custom Item Button Row (no-print) */}
+                      <tr className="no-print bg-slate-50/50">
+                        <td colSpan={4} className="py-2 px-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomTagihanItems([
+                                ...customTagihanItems,
+                                {
+                                  id: `custom-${Date.now()}`,
+                                  nama: 'Komponen Tambahan',
+                                  nominal: 0,
+                                },
+                              ]);
+                            }}
+                            className="text-xs font-semibold text-purple-700 hover:text-purple-800 flex items-center gap-1 hover:underline"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Komponen Tagihan Lainnya</span>
+                          </button>
+                        </td>
+                      </tr>
+
                       <tr className="bg-emerald-50/70 font-bold border-t-2 border-emerald-200">
                         <td colSpan={2} className="py-2.5 px-3 text-emerald-950 font-bold text-xs uppercase">
                           Total Estimasi Tagihan Awal
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-900 text-sm">
-                          Rp {tagihan.total.toLocaleString('id-ID')}
+                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-900 text-sm sm:text-base">
+                          Rp {totalTagihan.toLocaleString('id-ID')}
                         </td>
+                        <td className="no-print"></td>
                       </tr>
                     </tbody>
                   </table>
