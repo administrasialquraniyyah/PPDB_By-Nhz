@@ -183,7 +183,7 @@ export default function ImportPage() {
             <p className="text-emerald-800 text-[11px] leading-relaxed">
               {importTarget === 'APPLICANTS' ? (
                 <>
-                  Calon santri baru diimpor ke modul <strong>Data Pendaftar</strong> untuk mengikuti tes wawancara dan seleksi kelulusan. Hanya calon santri yang dinyatakan <strong>Lulus</strong> yang dapat diproses resmi menjadi Data Siswa PPDB.
+                  Calon santri baru diimpor ke modul <strong>Data Pendaftar</strong> dengan status pembayaran formulir otomatis <strong>Lunas (Transfer)</strong> untuk mengikuti tes wawancara dan seleksi kelulusan. Hanya calon santri yang dinyatakan <strong>Lulus</strong> yang dapat diproses resmi menjadi Data Siswa PPDB.
                 </>
               ) : (
                 <>

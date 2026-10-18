@@ -183,11 +183,14 @@ async function commitApplicants({
         namaWali: r.namaWali ? String(r.namaWali).trim() : null,
         noHpWali: r.noHpWali ? String(r.noHpWali).trim() : null,
 
-        // Status awal baku
+        // Status awal baku pendaftar: otomatis LUNAS formulir (Transfer) sesuai aturan bisnis impor PPDB
         statusPendaftaran: 'TERDAFTAR',
         sudahBeliFormulir: true,
         nominalFormulir,
-        statusBayarFormulir: 'BELUM_BAYAR',
+        statusBayarFormulir: 'LUNAS_TRANSFER',
+        metodePembayaran: 'Transfer',
+        tanggalBayarFormulir: new Date(),
+        catatanPembayaran: 'Otomatis Lunas dari Import PPDB',
       },
     });
 
