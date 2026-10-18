@@ -5,24 +5,33 @@ import { useApp } from '@/context/AppContext';
 import DbStatusBadge from './DbStatusBadge';
 import YearSelector from './YearSelector';
 import BackupButton from './BackupButton';
-import { Menu } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 export default function Navbar() {
-  const { setIsMobileNavOpen } = useApp();
+  const { setIsMobileNavOpen, isSidebarCollapsed, toggleSidebar } = useApp();
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3.5 py-2 sm:px-6">
-      <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
-        {/* Left: Mobile Toggle & Brand Logo */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center justify-between gap-3 w-full">
+        {/* Left: Mobile Toggle, Desktop Sidebar Toggle & Brand Logo */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setIsMobileNavOpen(true)}
             className="p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl lg:hidden transition"
             title="Buka Menu"
           >
             <Menu className="w-5 h-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl hidden lg:flex items-center justify-center transition"
+            title={isSidebarCollapsed ? 'Perluas Sidebar (Tampilkan Teks)' : 'Ciutkan Sidebar (Ikon Saja)'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="w-5 h-5 text-emerald-700" /> : <PanelLeftClose className="w-5 h-5" />}
           </button>
 
           <Link href="/" className="flex items-center gap-2.5 group">

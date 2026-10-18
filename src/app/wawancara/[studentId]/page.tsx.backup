@@ -1,0 +1,647 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  Video,
+  Play,
+  Pause,
+  RotateCcw,
+  ExternalLink,
+  Copy,
+  Check,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  User,
+  Phone,
+  School,
+  HeartPulse,
+  BookOpen,
+  Award,
+  ShieldAlert,
+  Clock,
+  History,
+} from 'lucide-react';
+
+interface Student {
+  id: string;
+  namaLengkap: string;
+  noPendaftaran: string | null;
+  noInduk: string | null;
+  jenjang: string;
+  gelombang: string;
+  jenisKelamin: string | null;
+  noHp: string | null;
+  alamat: string | null;
+  asalSekolah: string | null;
+  namaAyah: string | null;
+  noHpAyah: string | null;
+  namaIbu: string | null;
+  noHpIbu: string | null;
+  academicYear: {
+    name: string;
+  };
+}
+
+export default function WawancaraDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const studentId = params.studentId as string;
+
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copiedMeet, setCopiedMeet] = useState(false);
+
+  // Meet and Timer states
+  const [meetUrl, setMeetUrl] = useState('https://meet.google.com/new');
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Form Assessment States
+  const [interviewerName, setInterviewerName] = useState('');
+  const [kesiapanMondok, setKesiapanMondok] = useState('Sangat Siap & Mandiri');
+  const [kesiapanNotes, setKesiapanNotes] = useState('');
+  const [motivasiType, setMotivasiType] = useState('Kemauan Santri Sendiri');
+  const [motivasiNotes, setMotivasiNotes] = useState('');
+  const [catatanKesehatan, setCatatanKesehatan] = useState('');
+  const [komitmenOrtu, setKomitmenOrtu] = useState('');
+  const [catatanPenguji, setCatatanPenguji] = useState('');
+  const [hasilRekomendasi, setHasilRekomendasi] = useState<'DITERIMA' | 'DITERIMA_BERSYARAT' | 'CADANGAN' | 'PERLU_TINDAK_LANJUT'>('DITERIMA');
+  const [catatanTindakLanjut, setCatatanTindakLanjut] = useState('');
+  const [statusSesi, setStatusSesi] = useState<'SEDANG_BERLANGSUNG' | 'SELESAI'>('SEDANG_BERLANGSUNG');
+
+  // UI feedback
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+
+  // Timer logic
+  useEffect(() => {
+    if (isTimerRunning) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isTimerRunning]);
+
+  // Load student data read-only
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/students/${studentId}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          setStudent(json.data);
+        }
+      } catch (e) {
+        console.error('Failed to load student:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (studentId) {
+      loadData();
+    }
+  }, [studentId]);
+
+  const formatTimer = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleLaunchMeetPopup = () => {
+    if (!meetUrl) return;
+    setIsTimerRunning(true);
+    // Smart popup window: size 800x650 placed on the left side of screen
+    window.open(
+      meetUrl,
+      'GoogleMeetCallWindow',
+      'width=850,height=650,left=50,top=50,resizable=yes,scrollbars=yes,status=no'
+    );
+  };
+
+  const handleCopyMeet = () => {
+    navigator.clipboard.writeText(meetUrl);
+    setCopiedMeet(true);
+    setTimeout(() => setCopiedMeet(false), 2000);
+  };
+
+  const handleSaveDraftPreview = () => {
+    setSavedNotice('Catatan wawancara tersimpan aman dalam pratinjau sesi lokal!');
+    setTimeout(() => setSavedNotice(null), 3000);
+  };
+
+  const handleFinalizePreview = () => {
+    setStatusSesi('SELESAI');
+    setIsTimerRunning(false);
+    setSavedNotice('Wawancara berhasil ditandai selesai (Mode Pratinjau Tahap 1)!');
+    setTimeout(() => setSavedNotice(null), 3000);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500">
+        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p className="text-sm font-semibold">Memuat profil calon santri...</p>
+      </div>
+    );
+  }
+
+  if (!student) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center max-w-lg mx-auto mt-10">
+        <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-slate-900">Data Santri Tidak Ditemukan</h2>
+        <p className="text-xs text-slate-500 mt-1 mb-4">
+          ID Calon santri tidak terdaftar di sistem PPDB.
+        </p>
+        <Link
+          href="/wawancara"
+          className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition"
+        >
+          Kembali ke Antrean Wawancara
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 max-w-7xl mx-auto pb-10">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/wawancara"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition"
+            title="Kembali ke Daftar Antrean"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {student.noPendaftaran || 'PPDB-BARU'}
+              </span>
+              <span className="text-xs font-semibold text-slate-500">• {student.jenjang} ({student.gelombang})</span>
+            </div>
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-0.5">
+              Tes Wawancara: {student.namaLengkap}
+            </h1>
+          </div>
+        </div>
+
+        {/* Status & Action Badge */}
+        <div className="flex items-center gap-2">
+          {savedNotice && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-1.5 rounded-xl font-semibold animate-fade-in flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              {savedNotice}
+            </div>
+          )}
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-bold border ${
+              statusSesi === 'SELESAI'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
+            {statusSesi === 'SELESAI' ? 'Status: Selesai' : 'Status: Sedang Berlangsung'}
+          </span>
+        </div>
+      </div>
+
+      {/* Safety Notice Banner */}
+      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between text-xs text-slate-600">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-emerald-700 shrink-0" />
+          <span>
+            <b>Mode Pratinjau Antarmuka:</b> Form penilaian interaktif ini siap digunakan. Data database Supabase
+            dilindungi dan tidak akan dimodifikasi selama pengujian Tahap 1.
+          </span>
+        </div>
+        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+          Tahap 1 Aktif
+        </span>
+      </div>
+
+      {/* Main Two-Panel Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ===================== LEFT PANEL (MEET CONTROLLER & PROFIL) ===================== */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Candidate Profile Snapshot */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                {student.namaLengkap.substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm leading-tight">{student.namaLengkap}</h3>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  {student.jenisKelamin === 'L' ? 'Laki-laki (Santriwan)' : 'Perempuan (Santriwati)'}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-start gap-2 text-slate-600">
+                <School className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">Asal Sekolah</div>
+                  <div className="font-medium text-slate-800">{student.asalSekolah || 'Tidak tercantum'}</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 text-slate-600">
+                <Phone className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">No. Telepon / WhatsApp</div>
+                  <div className="font-medium text-slate-800">{student.noHp || '-'}</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 text-slate-600">
+                <User className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">Nama Orang Tua (Ayah / Ibu)</div>
+                  <div className="font-medium text-slate-800">
+                    {student.namaAyah || '-'} / {student.namaIbu || '-'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Google Meet Controller Card */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-md space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/60">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                  <Video className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-xs uppercase tracking-wider text-slate-200">
+                  Google Meet Video Call
+                </span>
+              </div>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded">
+                Live Controller
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Tautan / Link Google Meet:
+              </label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="url"
+                  value={meetUrl}
+                  onChange={(e) => setMeetUrl(e.target.value)}
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                  className="flex-1 bg-slate-950/70 border border-slate-700 text-slate-100 rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyMeet}
+                  className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 transition"
+                  title="Salin Link"
+                >
+                  {copiedMeet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Smart Launch Buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleLaunchMeetPopup}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition active:scale-98"
+              >
+                <Video className="w-4 h-4" />
+                Buka Meet (Jendela Berdampingan)
+              </button>
+
+              <a
+                href={meetUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-[11px] rounded-xl transition"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Buka di Tab Baru
+              </a>
+            </div>
+
+            {/* Live Interview Stopwatch */}
+            <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-semibold">Durasi Tes:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-black text-amber-300 tracking-wider">
+                  {formatTimer(timerSeconds)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsTimerRunning(!isTimerRunning)}
+                  className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition"
+                  title={isTimerRunning ? 'Jeda Timer' : 'Mulai Timer'}
+                >
+                  {isTimerRunning ? <Pause className="w-3 h-3 text-amber-400" /> : <Play className="w-3 h-3 text-emerald-400 fill-current" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTimerRunning(false);
+                    setTimerSeconds(0);
+                  }}
+                  className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 transition"
+                  title="Reset Timer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Historical Previous Notes Card */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-2 text-xs">
+            <div className="flex items-center gap-2 font-bold text-slate-800 pb-2 border-b border-slate-100">
+              <History className="w-4 h-4 text-emerald-700" />
+              <span>Riwayat Wawancara Calon Santri</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Belum ada riwayat tes terdahulu untuk calon santri ini. Sesi saat ini merupakan wawancara tahap pertama.
+            </p>
+          </div>
+        </div>
+
+        {/* ===================== RIGHT PANEL (FORM CATATAN WAWANCARA) ===================== */}
+        <div className="lg:col-span-8 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-200 gap-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Formulir Penilaian & Catatan Wawancara</h2>
+              <p className="text-xs text-slate-500">
+                Isi rubrik evaluasi penguji secara objektif selama video call berlangsung.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveDraftPreview}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Simpan Draft
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalizePreview}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Selesaikan Tes
+              </button>
+            </div>
+          </div>
+
+          {/* Input Nama Penguji */}
+          <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100">
+            <label className="block text-xs font-bold text-emerald-900 mb-1">
+              Nama Ustadz / Penguji Wawancara:
+            </label>
+            <input
+              type="text"
+              value={interviewerName}
+              onChange={(e) => setInterviewerName(e.target.value)}
+              placeholder="Contoh: Ust. H. Ahmad Fauzi / Usth. Hj. Siti Maryam"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Rubrik 1: Kesiapan Mondok */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px]">
+                1
+              </span>
+              <span>Kesiapan Mondok & Kemandirian Calon Santri</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              {['Sangat Siap & Mandiri', 'Cukup Siap (Perlu Adaptasi)', 'Ragu-ragu / Kurang Mandiri'].map((opt) => (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                    kesiapanMondok === opt
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="kesiapanMondok"
+                    checked={kesiapanMondok === opt}
+                    onChange={() => setKesiapanMondok(opt)}
+                    className="text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+            <textarea
+              rows={2}
+              value={kesiapanNotes}
+              onChange={(e) => setKesiapanNotes(e.target.value)}
+              placeholder="Catatan respon santri terkait kerelaan tinggal di asrama, mandi sendiri, merapikan barang, dll..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Rubrik 2: Motivasi Masuk Pesantren */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px]">
+                2
+              </span>
+              <span>Motivasi & Tujuan Masuk Pondok Pesantren</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              {['Kemauan Santri Sendiri', 'Dorongan Kuat Orang Tua', 'Campuran Santri & Orang Tua'].map((opt) => (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                    motivasiType === opt
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="motivasiType"
+                    checked={motivasiType === opt}
+                    onChange={() => setMotivasiType(opt)}
+                    className="text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+            <textarea
+              rows={2}
+              value={motivasiNotes}
+              onChange={(e) => setMotivasiNotes(e.target.value)}
+              placeholder="Catatan motivasi: cita-cita menghafal Al-Qur'an, minat kitab kuning, akhlak, atau dorongan lingkungan..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Rubrik 3: Informasi Kesehatan Khusus (Penting) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-800 flex items-center justify-center text-[10px]">
+                  3
+                </span>
+                <span className="flex items-center gap-1.5 text-rose-900">
+                  <HeartPulse className="w-4 h-4 text-rose-600" />
+                  Informasi Kesehatan Khusus Keluarga & Calon Santri
+                </span>
+              </div>
+              <span className="text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-semibold border border-rose-200">
+                Rahasia Medis
+              </span>
+            </div>
+            <textarea
+              rows={2}
+              value={catatanKesehatan}
+              onChange={(e) => setCatatanKesehatan(e.target.value)}
+              placeholder="Sebutkan jika ada riwayat asma, alergi makanan/obat, kejang/epilepsi, terapi rutin, atau pantangan khusus..."
+              className="w-full px-3 py-2 border border-rose-200 bg-rose-50/20 rounded-xl text-xs focus:ring-2 focus:ring-rose-500"
+            />
+          </div>
+
+          {/* Rubrik 4: Komitmen & Persetujuan Wali Santri */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px]">
+                4
+              </span>
+              <span>Komitmen & Kesepahaman Wali Santri</span>
+            </div>
+            <textarea
+              rows={2}
+              value={komitmenOrtu}
+              onChange={(e) => setKomitmenOrtu(e.target.value)}
+              placeholder="Catatan respon orang tua terkait tata tertib pesantren, pembatasan gawai/HP, kedisiplinan jadwal sambangan, dan komitmen keuangan..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Rubrik 5: Evaluasi Khusus Penguji (Adab & Al-Qur'an) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px]">
+                5
+              </span>
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+                Catatan Khusus Penguji (Adab, Kefasihan Al-Qur’an & Sikap)
+              </span>
+            </div>
+            <textarea
+              rows={2}
+              value={catatanPenguji}
+              onChange={(e) => setCatatanPenguji(e.target.value)}
+              placeholder="Catatan observasi adab santri, kontak mata, kesopanan bicara, kelancaran membaca ayat Al-Qur'an/makhorijul huruf..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Rubrik 6: Kesimpulan & Rekomendasi Hasil Akhir */}
+          <div className="space-y-3 pt-3 border-t-2 border-slate-200 bg-slate-50/70 p-4 rounded-xl border">
+            <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide">
+              <Award className="w-4 h-4 text-emerald-700" />
+              <span>Kesimpulan & Rekomendasi Penguji Wawancara</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+              {[
+                { key: 'DITERIMA', label: 'Diterima', color: 'bg-emerald-600 text-white' },
+                { key: 'DITERIMA_BERSYARAT', label: 'Diterima Bersyarat', color: 'bg-teal-600 text-white' },
+                { key: 'CADANGAN', label: 'Cadangan', color: 'bg-amber-600 text-white' },
+                { key: 'PERLU_TINDAK_LANJUT', label: 'Perlu Tindak Lanjut', color: 'bg-rose-600 text-white' },
+              ].map((rec) => (
+                <button
+                  key={rec.key}
+                  type="button"
+                  onClick={() => setHasilRekomendasi(rec.key as any)}
+                  className={`py-2 px-2 text-center rounded-xl transition text-xs ${
+                    hasilRekomendasi === rec.key
+                      ? `${rec.color} shadow-sm ring-2 ring-offset-1 ring-slate-400`
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {rec.label}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Catatan Syarat / Alasan Tindak Lanjut:
+              </label>
+              <textarea
+                rows={2}
+                value={catatanTindakLanjut}
+                onChange={(e) => setCatatanTindakLanjut(e.target.value)}
+                placeholder="Contoh: Wajib mengikuti kelas matrikulasi tahsin Al-Qur'an selama 1 bulan pertama, atau konfirmasi ulang orang tua terkait riwayat kesehatan..."
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Action Footer */}
+          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <Link
+              href="/wawancara"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
+            >
+              ← Kembali ke Daftar Antrean
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveDraftPreview}
+                className="flex-1 sm:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Simpan Draft
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalizePreview}
+                className="flex-1 sm:flex-none px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Selesaikan Tes Wawancara
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

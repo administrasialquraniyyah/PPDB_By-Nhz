@@ -96,6 +96,7 @@ export default function LaporanPage() {
       'Nama Ibu',
       'Tarif Formulir (Rp)',
       'Status Formulir',
+      'Metode Formulir',
       'Status Rekening',
       'Nomor Rekening',
       'Status Daftar Ulang',
@@ -123,6 +124,7 @@ export default function LaporanPage() {
       s.namaIbu || '',
       s.formPayment?.nominalAktual || 0,
       s.formPayment?.status || 'Lunas',
+      s.formPayment?.metodePembayaran || 'Transfer',
       s.bankAccount?.status || 'Belum dibuat',
       s.bankAccount?.accountNumber || '',
       s.reRegistration?.status || 'Belum',
@@ -140,6 +142,8 @@ export default function LaporanPage() {
 
   // Aggregates of the filtered data
   const totalFormulir = students.reduce((acc, s) => acc + (s.formPayment?.nominalAktual || 0), 0);
+  const totalFormulirCash = students.filter(s => s.formPayment?.metodePembayaran?.toLowerCase() === 'cash' && s.formPayment?.status === 'Lunas').reduce((acc, s) => acc + (s.formPayment?.nominalAktual || 0), 0);
+  const totalFormulirTransfer = students.filter(s => s.formPayment?.metodePembayaran?.toLowerCase() !== 'cash' && s.formPayment?.status === 'Lunas').reduce((acc, s) => acc + (s.formPayment?.nominalAktual || 0), 0);
   const totalDU = students.reduce((acc, s) => acc + (s.reRegistration?.amount || 0), 0);
   const countDU = students.filter((s) => s.reRegistration?.status === 'Sudah').length;
   const countRek = students.filter((s) => s.bankAccount?.status === 'Sudah dibuat').length;
@@ -257,10 +261,22 @@ export default function LaporanPage() {
       </div>
 
       {/* Report Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
           <span className="text-[11px] text-slate-400 font-medium">Santri Sesuai Filter</span>
           <div className="font-extrabold text-lg text-slate-900 mt-0.5">{students.length} Orang</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+          <span className="text-[11px] text-slate-400 font-medium">Pemasukan Formulir</span>
+          <div className="font-extrabold text-lg text-emerald-700 mt-0.5">
+            {formatCurrency(totalFormulir)}
+          </div>
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+            <span className="text-blue-700 font-semibold">Trf: {formatCurrency(totalFormulirTransfer)}</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold">Cash: {formatCurrency(totalFormulirCash)}</span>
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
@@ -277,7 +293,7 @@ export default function LaporanPage() {
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm col-span-2 sm:col-span-1">
           <span className="text-[11px] text-slate-400 font-medium">Total Penerimaan DU</span>
           <div className="font-extrabold text-lg text-emerald-800 mt-0.5">
             {formatCurrency(totalDU)}
@@ -323,7 +339,14 @@ export default function LaporanPage() {
                     <td className="py-2 px-2.5 font-mono text-slate-600">{s.noInduk || '-'}</td>
                     <td className="py-2 px-2.5 text-slate-700">{s.jenisKelamin || '-'}</td>
                     <td className="py-2 px-2.5 font-mono">
-                      {formatCurrency(s.formPayment?.nominalAktual || 0)}
+                      <div>{formatCurrency(s.formPayment?.nominalAktual || 0)}</div>
+                      <div className="text-[10px] font-sans">
+                        {s.formPayment?.metodePembayaran?.toLowerCase() === 'cash' ? (
+                          <span className="text-emerald-700 font-bold">Cash</span>
+                        ) : (
+                          <span className="text-blue-700 font-bold">Transfer</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 px-2.5 font-mono">
                       {s.bankAccount?.status === 'Sudah dibuat' ? (

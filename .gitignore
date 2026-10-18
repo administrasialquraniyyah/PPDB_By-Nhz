@@ -36,3 +36,6 @@ next-env.d.ts
 # backups
 /backups/*.xlsx
 /backups/arsip/
+
+# local dev storage (tahap 1a)
+.local-dev-store/

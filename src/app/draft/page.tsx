@@ -149,7 +149,31 @@ export default function DraftPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 w-full">
+      {/* Migration Notice Banner */}
+      <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-emerald-900 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-emerald-600 text-white rounded-xl shrink-0 mt-0.5">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-emerald-950">
+              Modul Baru: Data Siswa Pendaftar Telah Aktif!
+            </h2>
+            <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+              Pendaftaran calon santri baru, jadwal wawancara, dan verifikasi kelulusan kini terpusat di modul <strong>Data Pendaftar</strong>. Calon santri yang lulus dapat langsung dipromosikan ke Data Siswa tanpa duplikasi data.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/pendaftar"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition whitespace-nowrap self-start md:self-auto shrink-0 flex items-center gap-1.5"
+        >
+          <span>Buka Data Pendaftar</span>
+          <span>→</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

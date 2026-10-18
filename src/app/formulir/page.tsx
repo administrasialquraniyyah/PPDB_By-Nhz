@@ -32,6 +32,7 @@ export default function FormulirPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [jenjangFilter, setJenjangFilter] = useState('');
+  const [metodeFilter, setMetodeFilter] = useState('');
 
   const [editingItem, setEditingItem] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -44,6 +45,7 @@ export default function FormulirPage() {
       params.append('academicYearId', selectedYearId);
       if (statusFilter) params.append('status', statusFilter);
       if (jenjangFilter) params.append('jenjang', jenjangFilter);
+      if (metodeFilter) params.append('metode', metodeFilter);
 
       const res = await fetch(`/api/form-payments?${params.toString()}`);
       const json = await res.json();
@@ -60,7 +62,7 @@ export default function FormulirPage() {
 
   useEffect(() => {
     fetchFormulir();
-  }, [selectedYearId, statusFilter, jenjangFilter]);
+  }, [selectedYearId, statusFilter, jenjangFilter, metodeFilter]);
 
   const filteredPayments = payments.filter((p) => {
     if (!search) return true;
@@ -158,15 +160,7 @@ export default function FormulirPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-          <span className="text-[11px] text-slate-400 font-semibold uppercase">Total Target Tarif</span>
-          <div className="text-lg font-bold text-slate-900 mt-1">
-            {formatCurrency(summary.totalTarget)}
-          </div>
-          <span className="text-[10px] text-slate-400">Berdasarkan tarif default</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-          <span className="text-[11px] text-slate-400 font-semibold uppercase">Pemasukan Formulir</span>
+          <span className="text-[11px] text-slate-400 font-semibold uppercase">Total Pemasukan Formulir</span>
           <div className="text-lg font-bold text-emerald-700 mt-1">
             {formatCurrency(summary.totalAktual)}
           </div>
@@ -175,18 +169,32 @@ export default function FormulirPage() {
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
-          <span className="text-[11px] text-slate-400 font-semibold uppercase">Total Diskon Diberikan</span>
-          <div className="text-lg font-bold text-amber-600 mt-1">
-            {formatCurrency(summary.totalDiskon)}
+        <div className="bg-white p-4 rounded-xl border border-blue-200/60 shadow-sm bg-gradient-to-br from-white to-blue-50/30">
+          <span className="text-[11px] text-blue-600 font-semibold uppercase">Lunas Transfer Bank</span>
+          <div className="text-lg font-bold text-blue-900 mt-1">
+            {formatCurrency(summary.totalTransfer || 0)}
           </div>
-          <span className="text-[10px] text-slate-400">Keringanan biaya</span>
+          <span className="text-[10px] text-blue-600 font-medium">
+            {summary.countTransfer || 0} siswa via transfer
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-emerald-200/60 shadow-sm bg-gradient-to-br from-white to-emerald-50/30">
+          <span className="text-[11px] text-emerald-700 font-semibold uppercase">Lunas Tunai / Cash</span>
+          <div className="text-lg font-bold text-emerald-900 mt-1">
+            {formatCurrency(summary.totalCash || 0)}
+          </div>
+          <span className="text-[10px] text-emerald-700 font-medium">
+            {summary.countCash || 0} siswa bayar cash
+          </span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
           <span className="text-[11px] text-slate-400 font-semibold uppercase">Belum Lunas / Kurang</span>
           <div className="text-lg font-bold text-rose-600 mt-1">{summary.countBelum} Siswa</div>
-          <span className="text-[10px] text-rose-500">Perlu tindak lanjut</span>
+          <span className="text-[10px] text-slate-400">
+            Total diskon: {formatCurrency(summary.totalDiskon)}
+          </span>
         </div>
       </div>
 
@@ -203,7 +211,7 @@ export default function FormulirPage() {
           />
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <select
             value={jenjangFilter}
             onChange={(e) => setJenjangFilter(e.target.value)}
@@ -225,6 +233,16 @@ export default function FormulirPage() {
             <option value="Lunas">Lunas</option>
             <option value="Belum">Belum Lunas</option>
             <option value="Diskon Penuh">Diskon Penuh (Gratis)</option>
+          </select>
+
+          <select
+            value={metodeFilter}
+            onChange={(e) => setMetodeFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium"
+          >
+            <option value="">Semua Metode</option>
+            <option value="Transfer">Transfer Bank</option>
+            <option value="Cash">Tunai (Cash)</option>
           </select>
         </div>
       </div>
@@ -293,9 +311,19 @@ export default function FormulirPage() {
                       >
                         {p.status}
                       </span>
+                    <td className="py-2.5 px-3">
+                      {p.metodePembayaran?.toLowerCase() === 'cash' ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          Cash
+                        </span>
+                      ) : p.metodePembayaran?.toLowerCase() === 'transfer' ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                          Transfer
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-mono text-[11px]">-</span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600">{p.metodePembayaran || '-'}</td>
-                    <td className="py-2.5 px-3 text-right">
                       <button
                         onClick={() => setEditingItem({ ...p })}
                         className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition"

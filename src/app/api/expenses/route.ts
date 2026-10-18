@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         student: studentWhere,
         status: 'Lunas',
       },
-      select: { nominalAktual: true, diskon: true },
+      select: { nominalAktual: true, diskon: true, metodePembayaran: true },
     });
 
     const reRegistrations = await prisma.reRegistration.findMany({
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         student: studentWhere,
         status: 'Sudah',
       },
-      select: { amount: true },
+      select: { amount: true, paymentMethod: true },
     });
 
     const recommendations = await prisma.recommendation.findMany({
@@ -50,7 +50,17 @@ export async function GET(request: Request) {
       select: { appreciationAmount: true },
     });
 
-    const totalIncomeForm = formPayments.reduce((acc, f) => acc + f.nominalAktual, 0);
+    let totalIncomeFormCash = 0;
+    let totalIncomeFormTransfer = 0;
+    const totalIncomeForm = formPayments.reduce((acc, f) => {
+      if (f.metodePembayaran?.toLowerCase() === 'cash') {
+        totalIncomeFormCash += f.nominalAktual;
+      } else {
+        totalIncomeFormTransfer += f.nominalAktual;
+      }
+      return acc + f.nominalAktual;
+    }, 0);
+
     const totalDiskonForm = formPayments.reduce((acc, f) => acc + f.diskon, 0);
     const totalIncomeDU = reRegistrations.reduce((acc, r) => acc + r.amount, 0);
     const totalPemasukan = totalIncomeForm + totalIncomeDU;
@@ -81,6 +91,8 @@ export async function GET(request: Request) {
       summary: {
         totalPemasukan,
         totalIncomeForm,
+        totalIncomeFormCash,
+        totalIncomeFormTransfer,
         totalIncomeDU,
         totalDiskonForm,
         totalPengeluaran,

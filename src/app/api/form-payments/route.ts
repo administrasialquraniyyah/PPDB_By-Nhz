@@ -27,6 +27,11 @@ export async function GET(request: Request) {
       where.status = status;
     }
 
+    const metode = searchParams.get('metode');
+    if (metode) {
+      where.metodePembayaran = { equals: metode, mode: 'insensitive' };
+    }
+
     const formPayments = await prisma.formPayment.findMany({
       where,
       orderBy: { student: { namaLengkap: 'asc' } },
@@ -44,12 +49,16 @@ export async function GET(request: Request) {
       },
     });
 
-    // Summary calculations
+    // Summary calculations with Cash vs Transfer breakdown
     let totalTarget = 0;
     let totalAktual = 0;
     let totalDiskon = 0;
     let countLunas = 0;
     let countBelum = 0;
+    let totalCash = 0;
+    let countCash = 0;
+    let totalTransfer = 0;
+    let countTransfer = 0;
 
     formPayments.forEach((fp) => {
       totalTarget += fp.nominalDefault;
@@ -57,6 +66,13 @@ export async function GET(request: Request) {
       if (fp.status === 'Lunas') {
         totalAktual += fp.nominalAktual;
         countLunas++;
+        if (fp.metodePembayaran?.toLowerCase() === 'cash') {
+          totalCash += fp.nominalAktual;
+          countCash++;
+        } else {
+          totalTransfer += fp.nominalAktual;
+          countTransfer++;
+        }
       } else {
         countBelum++;
       }
@@ -71,6 +87,10 @@ export async function GET(request: Request) {
         totalDiskon,
         countLunas,
         countBelum,
+        totalCash,
+        countCash,
+        totalTransfer,
+        countTransfer,
       },
       data: formPayments,
     });

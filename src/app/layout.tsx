@@ -44,9 +44,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-50 flex flex-col font-sans">
         <AppProvider>
           <Navbar />
-          <div className="flex flex-1 max-w-7xl w-full mx-auto">
+          <div className="flex flex-1 w-full min-h-[calc(100vh-57px)]">
             <Sidebar />
-            <main className="flex-1 p-3.5 sm:p-6 pb-20 lg:pb-8 max-w-full overflow-x-hidden">
+            <main className="flex-1 p-3.5 sm:p-5 lg:p-6 pb-20 lg:pb-8 w-full max-w-full overflow-x-hidden min-w-0 transition-all">
               {children}
             </main>
           </div>

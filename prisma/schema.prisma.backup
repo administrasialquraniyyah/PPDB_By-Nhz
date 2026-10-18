@@ -1,0 +1,171 @@
+// Prisma schema for PPDB & Keuangan Al-Qur'aniyyah
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  name      String   @unique // e.g. "2026/2027", "2025/2026"
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  students Student[]
+  expenses Expense[]
+
+  @@map("academic_years")
+}
+
+model Student {
+  id             String   @id @default(uuid())
+  academicYearId String   @map("academic_year_id")
+  status         String   @default("ACTIVE") // "DRAFT" | "ACTIVE" | "BATAL"
+  
+  // Identitas Siswa dari Format Import
+  noPendaftaran  String?  @map("no_pendaftaran") // PPDB-2026-0001
+  noInduk        String?  @map("no_induk") // SIS01337 / NIS
+  namaLengkap    String   @map("nama_lengkap")
+  jenjang        String   // TK / SD / SMP / SMA
+  gelombang      String   @default("Gelombang 1")
+  nik            String?
+  nisn           String?
+  jenisKelamin   String?  @map("jenis_kelamin") // L / P
+  tempatLahir    String?  @map("tempat_lahir")
+  tanggalLahir   String?  @map("tanggal_lahir") // string formatted or raw
+  email          String?
+  noHp           String?  @map("no_hp")
+  alamat         String?  @db.Text
+  kota           String?
+  agama          String?  @default("Islam")
+  golonganDarah  String?  @map("golongan_darah")
+  asalSekolah    String?  @map("asal_sekolah")
+  alamatSekolah  String?  @map("alamat_sekolah") @db.Text
+  
+  // Orang Tua / Wali
+  namaAyah       String?  @map("nama_ayah")
+  noHpAyah       String?  @map("no_hp_ayah")
+  pekerjaanAyah  String?  @map("pekerjaan_ayah")
+  namaIbu        String?  @map("nama_ibu")
+  noHpIbu        String?  @map("no_hp_ibu")
+  pekerjaanIbu   String?  @map("pekerjaan_ibu")
+  namaWali       String?  @map("nama_wali")
+  noHpWali       String?  @map("no_hp_wali")
+  
+  // Akun Siswa & Bank Card ID
+  username       String?
+  password       String?
+  idKartu        String?  @map("id_kartu") // e.g. 1480001397
+  
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  formPayment    FormPayment?
+  recommendation Recommendation?
+  bankAccount    BankAccount?
+  reRegistration ReRegistration?
+
+  @@map("students")
+}
+
+model FormPayment {
+  id               String    @id @default(uuid())
+  studentId        String    @unique @map("student_id")
+  nominalDefault   Float     @default(300000) @map("nominal_default")
+  nominalAktual    Float     @default(300000) @map("nominal_aktual")
+  diskon           Float     @default(0)
+  status           String    @default("Lunas") // "Lunas" | "Belum" | "Diskon Penuh"
+  metodePembayaran String?   @default("Transfer") @map("metode_pembayaran") // Transfer | Cash | Lainnya
+  tanggal          DateTime? @default(now())
+  keterangan       String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("form_payments")
+}
+
+model Recommendation {
+  id                  String    @id @default(uuid())
+  studentId           String    @unique @map("student_id")
+  recommenderName     String    @map("recommender_name")
+  recommenderCategory String    @default("Guru/Internal") @map("recommender_category") // Guru/Internal | Wali Santri | Alumni | Lainnya
+  appreciationAmount  Float     @default(500000) @map("appreciation_amount")
+  paymentStatus       String    @default("Belum") @map("payment_status") // Belum | Lunas
+  paymentDate         DateTime? @map("payment_date")
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("recommendations")
+}
+
+model BankAccount {
+  id            String    @id @default(uuid())
+  studentId     String    @unique @map("student_id")
+  status        String    @default("Belum dibuat") // Belum dibuat | Sudah dibuat
+  bankName      String?   @default("Bank Syariah Indonesia (BSI)") @map("bank_name")
+  accountNumber String?   @map("account_number")
+  idNasabah     String?   @map("id_nasabah")
+  createdDate   DateTime? @map("created_date")
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("bank_accounts")
+}
+
+model ReRegistration {
+  id            String    @id @default(uuid())
+  studentId     String    @unique @map("student_id")
+  status        String    @default("Belum") // Belum | Sudah | Batal Masuk
+  amount        Float     @default(0) // Input manual oleh user!
+  paymentMethod String?   @map("payment_method") // Cash | Transfer | Rekening | Mini Bank | Lainnya
+  paymentDate   DateTime? @map("payment_date")
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("re_registrations")
+}
+
+model Expense {
+  id             String    @id @default(uuid())
+  academicYearId String    @map("academic_year_id")
+  date           DateTime  @default(now())
+  category       String    // Apresiasi Rekomendasi | Pengeluaran Yayasan | Operasional PPDB | Konsumsi/Penguji | Lainnya
+  description    String
+  amount         Float
+  reference      String?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+}
+
+model AppSetting {
+  key         String   @id
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}

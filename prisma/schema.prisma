@@ -16,8 +16,11 @@ model AcademicYear {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  students Student[]
-  expenses Expense[]
+  students            Student[]
+  expenses            Expense[]
+  interviews          StudentInterview[]
+  applicants          Applicant[]
+  applicantInterviews ApplicantInterview[]
 
   @@map("academic_years")
 }
@@ -72,6 +75,8 @@ model Student {
   recommendation Recommendation?
   bankAccount    BankAccount?
   reRegistration ReRegistration?
+  interviews     StudentInterview[]
+  applicant      Applicant?
 
   @@map("students")
 }
@@ -169,3 +174,135 @@ model AppSetting {
 
   @@map("app_settings")
 }
+
+model StudentInterview {
+  id                  String    @id @default(uuid())
+  studentId           String    @map("student_id")
+  academicYearId      String    @map("academic_year_id")
+  
+  // Data Jadwal & Sesi
+  scheduledDate       DateTime? @map("scheduled_date")
+  meetUrl             String?   @map("meet_url")
+  interviewerName     String?   @map("interviewer_name")
+  
+  // Status Sesi: "BELUM_DIJADWALKAN" | "TERJADWAL" | "SEDANG_BERLANGSUNG" | "SELESAI" | "PERLU_TINDAK_LANJUT"
+  status              String    @default("BELUM_DIJADWALKAN")
+  
+  // Rubrik Catatan Wawancara
+  kesiapanMondok      String?   @db.Text @map("kesiapan_mondok")
+  motivasi            String?   @db.Text
+  catatanKesehatan    String?   @db.Text @map("catatan_kesehatan")
+  komitmenOrtu        String?   @db.Text @map("komitmen_ortu")
+  catatanPenguji      String?   @db.Text @map("catatan_penguji")
+  
+  // Keputusan & Rekomendasi Penguji: "DITERIMA" | "DITERIMA_BERSYARAT" | "CADANGAN" | "DITOLAK" | "PENDING"
+  hasilRekomendasi    String?   @map("hasil_rekomendasi")
+  catatanTindakLanjut String?   @db.Text @map("catatan_tindak_lanjut")
+  
+  isDraft             Boolean   @default(true) @map("is_draft")
+  durationSeconds     Int?      @default(0) @map("duration_seconds")
+  startedAt           DateTime? @map("started_at")
+  completedAt         DateTime? @map("completed_at")
+  
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([status])
+  @@map("student_interviews")
+}
+
+model Applicant {
+  id                     String    @id @default(uuid())
+  academicYearId         String    @map("academic_year_id")
+  noPendaftaran          String?   @unique @map("no_pendaftaran")
+  namaLengkap            String    @map("nama_lengkap")
+  jenjang                String
+  gelombang              String?   @default("Gelombang 1")
+  nik                    String?
+  nisn                   String?
+  jenisKelamin           String?   @map("jenis_kelamin")
+  tempatLahir            String?   @map("tempat_lahir")
+  tanggalLahir           String?   @map("tanggal_lahir")
+  email                  String?
+  noHp                   String?   @map("no_hp")
+  alamat                 String?   @db.Text
+  kota                   String?
+  agama                  String?   @default("Islam")
+  asalSekolah            String?   @map("asal_sekolah")
+  alamatSekolah          String?   @map("alamat_sekolah") @db.Text
+  namaAyah               String?   @map("nama_ayah")
+  noHpAyah               String?   @map("no_hp_ayah")
+  pekerjaanAyah          String?   @map("pekerjaan_ayah")
+  namaIbu                String?   @map("nama_ibu")
+  noHpIbu                String?   @map("no_hp_ibu")
+  pekerjaanIbu           String?   @map("pekerjaan_ibu")
+  namaWali               String?   @map("nama_wali")
+  noHpWali               String?   @map("no_hp_wali")
+
+  statusPendaftaran      String    @default("TERDAFTAR") @map("status_pendaftaran")
+
+  alasanPembatalan       String?   @db.Text @map("alasan_pembatalan")
+  batalAt                DateTime? @map("batal_at")
+  batalBy                String?   @map("batal_by")
+
+  sudahBeliFormulir      Boolean   @default(true) @map("sudah_beli_formulir")
+  nominalFormulir        Float     @default(300000) @map("nominal_formulir")
+  statusBayarFormulir    String    @default("BELUM_BAYAR") @map("status_bayar_formulir")
+  metodePembayaran       String?   @map("metode_pembayaran")
+  noTransaksiFormulir    String?   @map("no_transaksi_formulir")
+  tanggalBayarFormulir   DateTime? @map("tanggal_bayar_formulir")
+  nomorReferensiTransfer String?   @map("nomor_referensi_transfer")
+  catatanPembayaran      String?   @db.Text @map("catatan_pembayaran")
+
+  studentId              String?   @unique @map("student_id")
+  student                Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  academicYear           AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  interviews             ApplicantInterview[]
+
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@map("applicants")
+}
+
+model ApplicantInterview {
+  id                  String    @id @default(uuid())
+  applicantId         String    @map("applicant_id")
+  academicYearId      String    @map("academic_year_id")
+  sessionNumber       Int       @default(1) @map("session_number")
+
+  scheduledDate       DateTime? @map("scheduled_date")
+  scheduledTime       String?   @map("scheduled_time")
+  interviewerName     String?   @map("interviewer_name")
+  meetUrl             String?   @map("meet_url")
+  status              String    @default("TERJADWAL")
+
+  kesiapanMondok      String?   @db.Text @map("kesiapan_mondok")
+  kesiapanNotes       String?   @db.Text @map("kesiapan_notes")
+  motivasiType        String?   @map("motivasi_type")
+  motivasiNotes       String?   @db.Text @map("motivasi_notes")
+  catatanKesehatan    String?   @db.Text @map("catatan_kesehatan")
+  komitmenOrtu        String?   @db.Text @map("komitmen_ortu")
+  adabDanQuran        String?   @db.Text @map("adab_dan_quran")
+  catatanPenguji      String?   @db.Text @map("catatan_penguji")
+  hasilRekomendasi    String?   @map("hasil_rekomendasi")
+  catatanTindakLanjut String?   @db.Text @map("catatan_tindak_lanjut")
+
+  isDraft             Boolean   @default(true) @map("is_draft")
+  durationSeconds     Int       @default(0) @map("duration_seconds")
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  applicant           Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  academicYear        AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@map("applicant_interviews")
+}
+

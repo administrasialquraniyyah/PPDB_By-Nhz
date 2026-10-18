@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
   HelpCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +21,7 @@ export default function ImportPage() {
   const { selectedYearId, selectedYearName, refreshYears } = useApp();
   const router = useRouter();
 
+  const [importTarget, setImportTarget] = useState<'APPLICANTS' | 'STUDENTS'>('APPLICANTS');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -52,7 +54,9 @@ export default function ImportPage() {
       formData.append('academicYearId', selectedYearId);
       formData.append('mode', 'preview');
 
-      const res = await fetch('/api/students/import', {
+      const endpoint = importTarget === 'APPLICANTS' ? '/api/applicants/import' : '/api/students/import';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -77,19 +81,31 @@ export default function ImportPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/students/import', {
+      const endpoint = importTarget === 'APPLICANTS' ? '/api/applicants/import' : '/api/students/import';
+
+      const payload = importTarget === 'APPLICANTS'
+        ? {
+            rows: preview.rows,
+            academicYearId: selectedYearId,
+          }
+        : {
+            rows: preview.rows,
+            academicYearId: selectedYearId,
+            targetStatus: targetStatus,
+          };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rows: preview.rows,
-          academicYearId: selectedYearId,
-          targetStatus: targetStatus,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
       if (json.success) {
-        setSuccessResult(json);
+        setSuccessResult({
+          ...json,
+          targetType: importTarget,
+        });
         await refreshYears();
         // Clear preview
         setPreview(null);
@@ -105,24 +121,76 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 w-full">
       {/* Header */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          Import Data PPDB
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Upload file Excel database PPDB. Data historis per tahun ajaran ({selectedYearName}) akan
-          tersimpan secara aman di Supabase.
-        </p>
-
-        <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200/70 text-xs text-emerald-800 flex items-start gap-2.5">
-          <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <span className="font-bold">Ketentuan Penting:</span> Semua siswa yang berhasil
-            diimpor akan{' '}
-            <span className="underline font-bold">otomatis tercatat sebagai pembeli formulir</span>{' '}
-            (dengan tarif default TK: Rp150.000, SD/SMP/SMA: Rp300.000). Tidak perlu memilih satu per satu!
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Import Data PPDB & Pendaftar
+              </h1>
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
+                T.P. {selectedYearName}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Upload file Excel pendaftaran calon santri dari website resmi PPDB Al-Qur’aniyyah.
+            </p>
+          </div>
+
+          {/* Target Module Switcher */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium self-start md:self-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setImportTarget('APPLICANTS');
+                setPreview(null);
+                setError('');
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                importTarget === 'APPLICANTS'
+                  ? 'bg-white text-emerald-800 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Ke Data Pendaftar (Rekomendasi)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setImportTarget('STUDENTS');
+                setPreview(null);
+                setError('');
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                importTarget === 'STUDENTS'
+                  ? 'bg-white text-emerald-800 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Ke Data Siswa Langsung</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3.5 bg-emerald-50 rounded-xl border border-emerald-200/70 text-xs text-emerald-900 flex items-start gap-2.5">
+          <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold">Ketentuan Alur Bisnis PPDB:</span>
+            <p className="text-emerald-800 text-[11px] leading-relaxed">
+              {importTarget === 'APPLICANTS' ? (
+                <>
+                  Calon santri baru diimpor ke modul <strong>Data Pendaftar</strong> untuk mengikuti tes wawancara dan seleksi kelulusan. Hanya calon santri yang dinyatakan <strong>Lulus</strong> yang dapat diproses resmi menjadi Data Siswa PPDB.
+                </>
+              ) : (
+                <>
+                  Data akan langsung dimasukkan ke tabel <strong>Data Siswa (PPDB)</strong>. Gunakan opsi ini hanya untuk migrasi data lama yang sudah dinyatakan diterima/lulus sebelumnya.
+                </>
+              )}
+            </p>
           </div>
         </div>
       </div>
@@ -131,14 +199,22 @@ export default function ImportPage() {
       {successResult && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-emerald-900 shadow-sm animate-in fade-in">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
             <div>
               <h3 className="font-bold text-base">Import Berhasil Selesai!</h3>
               <p className="text-sm mt-0.5">{successResult.message}</p>
             </div>
           </div>
-          <div className="flex gap-3 mt-4">
-            {successResult.targetStatus === 'DRAFT' ? (
+          <div className="flex flex-wrap gap-3 mt-4">
+            {successResult.targetType === 'APPLICANTS' ? (
+              <button
+                onClick={() => router.push('/pendaftar')}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold shadow-sm hover:bg-emerald-700 transition flex items-center gap-1.5"
+              >
+                <span>Buka Data Pendaftar Sekarang</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : successResult.targetStatus === 'DRAFT' ? (
               <button
                 onClick={() => router.push('/draft')}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold shadow-sm hover:bg-emerald-700 transition"
@@ -165,7 +241,7 @@ export default function ImportPage() {
 
       {/* Upload Box */}
       {!successResult && (
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
           <form onSubmit={handleUploadPreview} className="space-y-4">
             <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 text-center transition-colors">
               <input
@@ -186,7 +262,7 @@ export default function ImportPage() {
                   {file ? file.name : 'Pilih atau Tarik File Excel PPDB ke sini'}
                 </div>
                 <p className="text-xs text-slate-400">
-                  Mendukung file .xlsx dan .xls (Format DATA SANTRI atau Santri Baru Full Data)
+                  Mendukung file .xlsx dan .xls format ekspor website resmi PPDB Al-Qur’aniyyah
                 </p>
               </label>
             </div>
@@ -200,13 +276,13 @@ export default function ImportPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <span className="text-xs text-slate-500">
-                Tahun Ajaran Target: <strong className="text-slate-800">{selectedYearName}</strong>
+                Tujuan Impor: <strong className="text-slate-800">{importTarget === 'APPLICANTS' ? 'Data Pendaftar (Calon Santri Baru)' : 'Data Siswa PPDB Langsung'}</strong> • T.P. <strong className="text-slate-800">{selectedYearName}</strong>
               </span>
 
               <button
                 type="submit"
                 disabled={!file || loading}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 {loading ? 'Menganalisis Kolom Excel...' : 'Baca & Tampilkan Preview'}
@@ -221,64 +297,66 @@ export default function ImportPage() {
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Summary Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
               <span className="text-[11px] text-slate-400 font-medium">Sheet Terpilih</span>
               <div className="font-bold text-sm text-slate-800 truncate">{preview.selectedSheet}</div>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
               <span className="text-[11px] text-slate-400 font-medium">Total Baris Data</span>
-              <div className="font-extrabold text-lg text-slate-900">{preview.totalRows} Siswa</div>
+              <div className="font-extrabold text-lg text-slate-900">{preview.totalRows} Data</div>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
               <span className="text-[11px] text-slate-400 font-medium">Data Siap Impor</span>
-              <div className="font-extrabold text-lg text-emerald-600">{preview.validRows} Siswa</div>
+              <div className="font-extrabold text-lg text-emerald-600">{preview.validRows} Data</div>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
               <span className="text-[11px] text-slate-400 font-medium">Potensi Duplikat</span>
               <div className={`font-extrabold text-lg ${preview.duplicateCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                {preview.duplicateCount} Siswa
+                {preview.duplicateCount} Data
               </div>
             </div>
           </div>
 
-          {/* Destination Status Choice */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-bold text-slate-800">Pilih Status Data Hasil Impor:</div>
-              <p className="text-[11px] text-slate-500">
-                Anda dapat memasukkan ke Draft terlebih dahulu untuk diperiksa, atau langsung ke Siswa Aktif.
-              </p>
-            </div>
+          {/* Destination Status Choice (Only for Students direct import) */}
+          {importTarget === 'STUDENTS' && (
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-slate-800">Pilih Status Data Siswa Hasil Impor:</div>
+                <p className="text-[11px] text-slate-500">
+                  Anda dapat memasukkan ke Draft terlebih dahulu untuk diperiksa, atau langsung ke Siswa Aktif.
+                </p>
+              </div>
 
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                <input
-                  type="radio"
-                  name="targetStatus"
-                  value="DRAFT"
-                  checked={targetStatus === 'DRAFT'}
-                  onChange={() => setTargetStatus('DRAFT')}
-                  className="text-emerald-600 focus:ring-emerald-500"
-                />
-                <span>Masuk sebagai Draft (Rekomendasi)</span>
-              </label>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="radio"
+                    name="targetStatus"
+                    value="DRAFT"
+                    checked={targetStatus === 'DRAFT'}
+                    onChange={() => setTargetStatus('DRAFT')}
+                    className="text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Masuk sebagai Draft (Rekomendasi)</span>
+                </label>
 
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                <input
-                  type="radio"
-                  name="targetStatus"
-                  value="ACTIVE"
-                  checked={targetStatus === 'ACTIVE'}
-                  onChange={() => setTargetStatus('ACTIVE')}
-                  className="text-emerald-600 focus:ring-emerald-500"
-                />
-                <span>Langsung Siswa Aktif</span>
-              </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="radio"
+                    name="targetStatus"
+                    value="ACTIVE"
+                    checked={targetStatus === 'ACTIVE'}
+                    onChange={() => setTargetStatus('ACTIVE')}
+                    className="text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Langsung Siswa Aktif</span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Preview Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="font-bold text-sm text-slate-800">Preview Data ({preview.rows.length} Baris)</h2>
               <span className="text-xs text-slate-400">Pastikan kolom nama dan jenjang sudah sesuai</span>
@@ -289,13 +367,13 @@ export default function ImportPage() {
                 <thead className="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200/80">
                   <tr>
                     <th className="py-2.5 px-3 font-semibold">No</th>
-                    <th className="py-2.5 px-3 font-semibold">Nama Siswa</th>
+                    <th className="py-2.5 px-3 font-semibold">Nama Calon Santri</th>
                     <th className="py-2.5 px-3 font-semibold">Jenjang</th>
                     <th className="py-2.5 px-3 font-semibold">Gelombang</th>
                     <th className="py-2.5 px-3 font-semibold">L/P</th>
                     <th className="py-2.5 px-3 font-semibold">No HP</th>
                     <th className="py-2.5 px-3 font-semibold">Orang Tua</th>
-                    <th className="py-2.5 px-3 font-semibold">Status Data</th>
+                    <th className="py-2.5 px-3 font-semibold">Status Validasi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
@@ -304,7 +382,7 @@ export default function ImportPage() {
                       key={idx}
                       className={`hover:bg-slate-50 ${r.isDuplicate ? 'bg-amber-50/50' : ''}`}
                     >
-                      <td className="py-2 px-3 text-slate-400">{r.rowNumber}</td>
+                      <td className="py-2 px-3 text-slate-400">{r.rowNumber || idx + 1}</td>
                       <td className="py-2 px-3 font-sans font-semibold text-slate-900">
                         {r.namaLengkap}
                       </td>
@@ -313,14 +391,14 @@ export default function ImportPage() {
                           {r.jenjang}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-slate-600">{r.gelombang}</td>
+                      <td className="py-2 px-3 text-slate-600">{r.gelombang || 'Gelombang 1'}</td>
                       <td className="py-2 px-3 text-slate-600">{r.jenisKelamin || '-'}</td>
                       <td className="py-2 px-3 text-slate-600">{r.noHp || '-'}</td>
                       <td className="py-2 px-3 font-sans text-slate-700">{r.namaAyah || r.namaIbu || '-'}</td>
                       <td className="py-2 px-3 font-sans">
                         {r.isDuplicate ? (
                           <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded text-[10px] font-bold">
-                            <AlertTriangle className="w-3 h-3" /> Duplikat NIK/Nama
+                            <AlertTriangle className="w-3 h-3" /> Duplikat
                           </span>
                         ) : (
                           <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px] font-bold">
@@ -343,6 +421,7 @@ export default function ImportPage() {
             {/* Commit Action Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
               <button
+                type="button"
                 onClick={() => setPreview(null)}
                 className="w-full sm:w-auto px-4 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition"
               >
@@ -350,6 +429,7 @@ export default function ImportPage() {
               </button>
 
               <button
+                type="button"
                 onClick={handleCommit}
                 disabled={committing}
                 className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
@@ -357,6 +437,8 @@ export default function ImportPage() {
                 <CheckCircle2 className={`w-4 h-4 ${committing ? 'animate-spin' : ''}`} />
                 {committing
                   ? 'Menyimpan ke Supabase...'
+                  : importTarget === 'APPLICANTS'
+                  ? `Setujui & Simpan ${preview.validRows} Calon Santri ke Data Pendaftar`
                   : `Setujui & Simpan ${preview.validRows} Data Siswa ke Supabase`}
               </button>
             </div>

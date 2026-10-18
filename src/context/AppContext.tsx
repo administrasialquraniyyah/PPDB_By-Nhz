@@ -31,6 +31,9 @@ interface AppContextType {
   checkDbConnection: () => Promise<void>;
   isMobileNavOpen: boolean;
   setIsMobileNavOpen: (open: boolean) => void;
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -39,6 +42,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [academicYears, setAcademicYears] = useState<AcademicYearItem[]>([]);
   const [selectedYearId, setSelectedYearId] = useState<string>('');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Initialize sidebar collapsed state from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ppdb_sidebar_collapsed');
+        if (saved !== null) {
+          setIsSidebarCollapsed(saved === 'true');
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('ppdb_sidebar_collapsed', String(next));
+        } catch (e) {}
+      }
+      return next;
+    });
+  };
   const [dbStatus, setDbStatus] = useState<DbStatusInfo>({
     status: 'checking',
     latencyMs: 0,
@@ -152,6 +180,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         checkDbConnection,
         isMobileNavOpen,
         setIsMobileNavOpen,
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        toggleSidebar,
       }}
     >
       {children}

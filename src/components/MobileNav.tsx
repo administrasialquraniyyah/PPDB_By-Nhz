@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   X,
   FileUp,
+  ClipboardList,
 } from 'lucide-react';
 
 export default function MobileNav() {
@@ -21,7 +22,7 @@ export default function MobileNav() {
   // Bottom quick links
   const quickLinks = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Import', href: '/import', icon: FileUp },
+    { name: 'Pendaftar', href: '/pendaftar', icon: ClipboardList },
     { name: 'Siswa', href: '/siswa', icon: Users },
     { name: 'Keuangan', href: '/keuangan', icon: Wallet },
     { name: 'Laporan', href: '/laporan', icon: FileSpreadsheet },

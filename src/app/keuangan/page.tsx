@@ -246,9 +246,15 @@ export default function KeuanganPage() {
           <div className="text-xl font-extrabold text-emerald-700 mt-1">
             {formatCurrency(summary.totalPemasukan)}
           </div>
-          <div className="text-[10px] text-slate-400 mt-1 flex justify-between border-t border-slate-100 pt-1">
-            <span>Formulir: {formatCurrency(summary.totalIncomeForm)}</span>
-            <span>DU: {formatCurrency(summary.totalIncomeDU)}</span>
+          <div className="text-[10px] text-slate-500 mt-1.5 flex flex-col gap-0.5 border-t border-slate-100 pt-1">
+            <div className="flex justify-between">
+              <span>Formulir: {formatCurrency(summary.totalIncomeForm)}</span>
+              <span>DU: {formatCurrency(summary.totalIncomeDU)}</span>
+            </div>
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span className="text-blue-600 font-medium">Trf Bank: {formatCurrency(summary.totalIncomeFormTransfer || 0)}</span>
+              <span className="text-emerald-700 font-medium">Cash: {formatCurrency(summary.totalIncomeFormCash || 0)}</span>
+            </div>
           </div>
         </div>
 

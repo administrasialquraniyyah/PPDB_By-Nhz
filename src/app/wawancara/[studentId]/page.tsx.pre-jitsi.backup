@@ -1,0 +1,603 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import {
+  ArrowLeft,
+  Video,
+  Play,
+  Pause,
+  RotateCcw,
+  ExternalLink,
+  Copy,
+  Check,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  User,
+  Phone,
+  School,
+  HeartPulse,
+  BookOpen,
+  Award,
+  Clock,
+  Info,
+  Maximize2,
+  Calendar,
+} from 'lucide-react';
+
+interface Student {
+  id: string;
+  namaLengkap: string;
+  noPendaftaran: string | null;
+  noInduk: string | null;
+  jenjang: string;
+  gelombang: string;
+  jenisKelamin: string | null;
+  noHp: string | null;
+  asalSekolah: string | null;
+  namaAyah: string | null;
+  namaIbu: string | null;
+  alamat: string | null;
+  academicYear?: {
+    name: string;
+  };
+}
+
+export default function WawancaraDetailPage() {
+  const params = useParams();
+  const studentId = params.studentId as string;
+
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copiedMeet, setCopiedMeet] = useState(false);
+
+  // Mobile active tab view ('video' | 'form')
+  const [mobileTab, setMobileTab] = useState<'video' | 'form'>('video');
+
+  // Meet and Timer states
+  const [meetUrl, setMeetUrl] = useState('https://meet.google.com/new');
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Form Assessment States
+  const [interviewerName, setInterviewerName] = useState('');
+  const [kesiapanMondok, setKesiapanMondok] = useState('Sangat Siap & Mandiri');
+  const [kesiapanNotes, setKesiapanNotes] = useState('');
+  const [motivasiType, setMotivasiType] = useState('Kemauan Santri Sendiri');
+  const [motivasiNotes, setMotivasiNotes] = useState('');
+  const [catatanKesehatan, setCatatanKesehatan] = useState('');
+  const [komitmenOrtu, setKomitmenOrtu] = useState('');
+  const [adabDanQuran, setAdabDanQuran] = useState('');
+  const [catatanPenguji, setCatatanPenguji] = useState('');
+  const [hasilRekomendasi, setHasilRekomendasi] = useState<
+    'DITERIMA' | 'DITERIMA_BERSYARAT' | 'CADANGAN' | 'PERLU_TINDAK_LANJUT'
+  >('DITERIMA');
+  const [catatanTindakLanjut, setCatatanTindakLanjut] = useState('');
+  const [statusSesi, setStatusSesi] = useState<'SEDANG_BERLANGSUNG' | 'SELESAI'>('SEDANG_BERLANGSUNG');
+
+  // Notice feedback
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+
+  // Stopwatch effect
+  useEffect(() => {
+    if (isTimerRunning) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isTimerRunning]);
+
+  // Load student read-only
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/students/${studentId}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          setStudent(json.data);
+        }
+      } catch (e) {
+        console.error('Failed to load student:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (studentId) {
+      loadData();
+    }
+  }, [studentId]);
+
+  const formatTimer = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleLaunchMeetPopup = () => {
+    if (!meetUrl) return;
+    setIsTimerRunning(true);
+    // Smart popup window placed comfortably
+    window.open(
+      meetUrl,
+      'GoogleMeetCallWindow',
+      'width=850,height=650,left=40,top=40,resizable=yes,scrollbars=yes,status=no'
+    );
+  };
+
+  const handleCopyMeet = () => {
+    navigator.clipboard.writeText(meetUrl);
+    setCopiedMeet(true);
+    setTimeout(() => setCopiedMeet(false), 2000);
+  };
+
+  const handleSaveDraftPreview = () => {
+    setNoticeMessage('Catatan draf wawancara disimpan ke memori sesi!');
+    setTimeout(() => setNoticeMessage(null), 3000);
+  };
+
+  const handleFinalizePreview = () => {
+    setStatusSesi('SELESAI');
+    setIsTimerRunning(false);
+    setNoticeMessage('Wawancara ditandai Selesai (Mode Pratinjau Aman)!');
+    setTimeout(() => setNoticeMessage(null), 3000);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500">
+        <div className="w-7 h-7 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p className="text-xs font-semibold">Menyiapkan ruang wawancara santri...</p>
+      </div>
+    );
+  }
+
+  if (!student) {
+    return (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center max-w-md mx-auto mt-10">
+        <AlertTriangle className="w-9 h-9 text-amber-500 mx-auto mb-2" />
+        <h2 className="text-base font-bold text-slate-900">Data Santri Tidak Ditemukan</h2>
+        <p className="text-xs text-slate-500 mt-1 mb-4">ID Calon santri tidak terdaftar di sistem PPDB.</p>
+        <Link
+          href="/wawancara"
+          className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition"
+        >
+          Kembali ke Antrean
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 w-full">
+      {/* Top Header Workspace Bar */}
+      <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/wawancara"
+            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition shrink-0"
+            title="Kembali ke Antrean"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                {student.namaLengkap}
+              </h1>
+              <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                {student.noPendaftaran || 'PPDB-BARU'}
+              </span>
+              <span className="text-xs text-slate-500 shrink-0 hidden sm:inline">
+                • {student.jenjang} ({student.gelombang})
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Header Right: Timer & Status */}
+        <div className="flex items-center gap-2 shrink-0">
+          {noticeMessage && (
+            <div className="hidden md:flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              <Check className="w-3 h-3 text-emerald-600" />
+              {noticeMessage}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 bg-slate-900 text-amber-300 font-mono text-xs px-2.5 py-1 rounded-xl shadow-xs">
+            <Clock className="w-3 h-3 text-amber-400" />
+            <span className="font-bold">{formatTimer(timerSeconds)}</span>
+          </div>
+
+          <span
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+              statusSesi === 'SELESAI'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border-amber-300'
+            }`}
+          >
+            {statusSesi === 'SELESAI' ? 'Selesai' : 'Live'}
+          </span>
+        </div>
+      </div>
+
+      {/* Mobile Tab Switcher (Only visible on small screens) */}
+      <div className="flex lg:hidden bg-slate-200/80 p-1 rounded-xl gap-1 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setMobileTab('video')}
+          className={`flex-1 py-1.5 rounded-lg transition ${
+            mobileTab === 'video' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          Area Video & Info
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('form')}
+          className={`flex-1 py-1.5 rounded-lg transition ${
+            mobileTab === 'form' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          Formulir Penilaian
+        </button>
+      </div>
+
+      {/* Integrated Unified Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* ======================= LEFT: VIDEO CALL & CANDIDATE SNAPSHOT (55-60%) ======================= */}
+        <div className={`lg:col-span-7 space-y-3 ${mobileTab === 'video' ? 'block' : 'hidden lg:block'}`}>
+          {/* Main Video Call Console */}
+          <div className="bg-slate-950 rounded-2xl overflow-hidden shadow-md border border-slate-800 flex flex-col">
+            {/* Video Console Top Bar */}
+            <div className="px-4 py-2 bg-slate-900 border-b border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="font-semibold text-slate-200 text-[11px]">Ruang Video Call Calon Santri</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">Google Meet Ready</span>
+            </div>
+
+            {/* Video Stage Area (16:9 Aspect Ratio) */}
+            <div className="relative aspect-video bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 flex flex-col items-center justify-center p-6 text-center">
+              {/* Center Stage Avatar & Status */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white font-bold text-xl sm:text-2xl flex items-center justify-center shadow-lg border-2 border-slate-700/80 mb-3">
+                {student.namaLengkap.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="text-slate-100 font-bold text-sm sm:text-base">{student.namaLengkap}</div>
+              <div className="text-slate-400 text-xs mt-0.5">
+                {student.jenjang} — {student.gelombang} ({student.jenisKelamin === 'L' ? 'Santriwan' : 'Santriwati'})
+              </div>
+
+              {/* Security info tooltip badge */}
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 rounded-full text-[11px] text-slate-300 border border-slate-700">
+                <Info className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Google Meet beroperasi via pop-up berdampingan untuk performa audio-video terbaik</span>
+              </div>
+
+              {/* Timer Controls Bar on Stage */}
+              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/70">
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">Durasi:</div>
+                  <div className="font-mono text-xs font-bold text-amber-300">{formatTimer(timerSeconds)}</div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsTimerRunning(!isTimerRunning)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                  >
+                    {isTimerRunning ? <Pause className="w-3 h-3 text-amber-400" /> : <Play className="w-3 h-3 text-emerald-400 fill-current" />}
+                    <span>{isTimerRunning ? 'Jeda' : 'Mulai'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTimerRunning(false);
+                      setTimerSeconds(0);
+                    }}
+                    className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-lg transition"
+                    title="Reset Durasi"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Meet Controls Action Bar */}
+            <div className="p-3 bg-slate-900/95 border-t border-slate-800 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={meetUrl}
+                  onChange={(e) => setMeetUrl(e.target.value)}
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                  className="flex-1 bg-slate-950 border border-slate-700 text-slate-100 rounded-xl px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyMeet}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium flex items-center gap-1 transition"
+                  title="Salin Link Meet"
+                >
+                  {copiedMeet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">Salin</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleLaunchMeetPopup}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-98"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  Buka Meet (Jendela Berdampingan)
+                </button>
+
+                <a
+                  href={meetUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-medium text-xs rounded-xl transition"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Buka di Tab Baru
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Compact Candidate Summary Bar (No separate card stack!) */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <School className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span className="text-slate-500 text-[11px]">Asal Sekolah:</span>
+              <span className="font-semibold text-slate-800">{student.asalSekolah || '-'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span className="text-slate-500 text-[11px]">Kontak:</span>
+              <span className="font-semibold text-slate-800">{student.noHp || '-'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <User className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span className="text-slate-500 text-[11px]">Wali:</span>
+              <span className="font-semibold text-slate-800">
+                {student.namaAyah || student.namaIbu || '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ======================= RIGHT: COMPACT ASSESSMENT FORM (40-45%) ======================= */}
+        <div
+          className={`lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col ${
+            mobileTab === 'form' ? 'block' : 'hidden lg:flex'
+          } lg:h-[calc(100vh-130px)]`}
+        >
+          {/* Form Header (Sticky top) */}
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 rounded-t-2xl shrink-0">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Formulir Penilaian Wawancara
+              </h2>
+              <p className="text-[10px] text-slate-400">Catatan disimpan otomatis saat pengujian</p>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded">
+              7 Rubrik Baku
+            </span>
+          </div>
+
+          {/* Form Scrollable Body (Independent Scroll) */}
+          <div className="p-4 overflow-y-auto flex-1 space-y-4 text-xs">
+            {/* Nama Penguji */}
+            <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/80">
+              <label className="block text-[11px] font-bold text-emerald-950 mb-1">
+                Nama Penguji (Ustadz / Ustadzah):
+              </label>
+              <input
+                type="text"
+                value={interviewerName}
+                onChange={(e) => setInterviewerName(e.target.value)}
+                placeholder="Contoh: Ust. Ahmad Fauzi / Usth. Maryam"
+                className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 1: Kesiapan Mondok */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-800 text-xs">
+                1. Kesiapan Mondok & Kemandirian
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                {['Sangat Siap', 'Cukup Siap', 'Ragu-ragu'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setKesiapanMondok(opt)}
+                    className={`py-1 px-1 text-center rounded-lg border font-medium transition ${
+                      kesiapanMondok === opt
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                rows={2}
+                value={kesiapanNotes}
+                onChange={(e) => setKesiapanNotes(e.target.value)}
+                placeholder="Catatan kemandirian: tinggal terpisah, kedisiplinan..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 2: Motivasi Masuk Pesantren */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-800 text-xs">
+                2. Motivasi Masuk Pesantren
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                {['Santri Sendiri', 'Dorongan Ortu', 'Keduanya'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setMotivasiType(opt)}
+                    className={`py-1 px-1 text-center rounded-lg border font-medium transition ${
+                      motivasiType === opt
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                rows={2}
+                value={motivasiNotes}
+                onChange={(e) => setMotivasiNotes(e.target.value)}
+                placeholder="Catatan tujuan: tahfidz, akademik, adab..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 3: Informasi Kesehatan Khusus (Penting) */}
+            <div className="space-y-1.5 bg-rose-50/40 p-2.5 rounded-xl border border-rose-200/80">
+              <div className="flex items-center justify-between">
+                <label className="block font-bold text-rose-900 text-xs flex items-center gap-1">
+                  <HeartPulse className="w-3.5 h-3.5 text-rose-600" />
+                  3. Informasi Riwayat Kesehatan
+                </label>
+                <span className="text-[10px] text-rose-700 font-semibold">Rahasia</span>
+              </div>
+              <textarea
+                rows={2}
+                value={catatanKesehatan}
+                onChange={(e) => setCatatanKesehatan(e.target.value)}
+                placeholder="Riwayat asma, alergi, kejang, terapi obat rutin keluarga/santri..."
+                className="w-full px-2.5 py-1.5 border border-rose-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-rose-500"
+              />
+            </div>
+
+            {/* Rubrik 4: Komitmen Wali Santri */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-800 text-xs">
+                4. Komitmen & Persetujuan Wali
+              </label>
+              <textarea
+                rows={2}
+                value={komitmenOrtu}
+                onChange={(e) => setKomitmenOrtu(e.target.value)}
+                placeholder="Respon orang tua terkait aturan asrama, gawai, sambangan, biaya..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 5: Adab & Membaca Al-Qur'an */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-800 text-xs flex items-center gap-1">
+                <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+                5. Adab & Bacaan Al-Qur’an
+              </label>
+              <textarea
+                rows={2}
+                value={adabDanQuran}
+                onChange={(e) => setAdabDanQuran(e.target.value)}
+                placeholder="Kelancaran membaca Al-Qur'an, tajwid dasar, makhorijul huruf, adab..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 6: Catatan Khusus Penguji */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-800 text-xs">
+                6. Catatan Tambahan Penguji
+              </label>
+              <textarea
+                rows={2}
+                value={catatanPenguji}
+                onChange={(e) => setCatatanPenguji(e.target.value)}
+                placeholder="Observasi umum, potensi santri, atau catatan penting lainnya..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* Rubrik 7: Kesimpulan & Rekomendasi */}
+            <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <label className="block font-bold text-slate-900 text-xs flex items-center gap-1">
+                <Award className="w-3.5 h-3.5 text-emerald-700" />
+                7. Kesimpulan & Rekomendasi Hasil
+              </label>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { key: 'DITERIMA', label: 'Diterima', color: 'bg-emerald-700 text-white' },
+                  { key: 'DITERIMA_BERSYARAT', label: 'Diterima Bersyarat', color: 'bg-teal-700 text-white' },
+                  { key: 'CADANGAN', label: 'Cadangan', color: 'bg-amber-600 text-white' },
+                  { key: 'PERLU_TINDAK_LANJUT', label: 'Tindak Lanjut', color: 'bg-rose-600 text-white' },
+                ].map((rec) => (
+                  <button
+                    key={rec.key}
+                    type="button"
+                    onClick={() => setHasilRekomendasi(rec.key as any)}
+                    className={`py-1.5 px-2 text-center rounded-lg text-xs font-bold transition ${
+                      hasilRekomendasi === rec.key
+                        ? `${rec.color} shadow-xs`
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {rec.label}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={2}
+                value={catatanTindakLanjut}
+                onChange={(e) => setCatatanTindakLanjut(e.target.value)}
+                placeholder="Catatan syarat / rekomendasi tindak lanjut (misal: matrikulasi tahsin)..."
+                className="w-full px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Form Action Footer (Sticky Bottom) */}
+          <div className="px-4 py-2.5 bg-slate-50/95 border-t border-slate-200 rounded-b-2xl flex items-center justify-between gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleSaveDraftPreview}
+              className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-semibold flex items-center gap-1 transition"
+            >
+              <Save className="w-3.5 h-3.5" />
+              Simpan Draf
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFinalizePreview}
+              className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Selesaikan Tes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
