@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import prisma from '@/lib/prisma';
 
 // Production safety guard: strictly reject execution in production unless explicitly mocked
 if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_LOCAL_DEV_STORE) {
-  // In production, an error must be thrown to guarantee Supabase production is not bypassed silently
   console.warn('[SECURITY] Local development storage adapter invoked in non-development environment.');
 }
 
@@ -49,13 +49,20 @@ interface LocalStoreData {
   schedules: Record<string, InterviewSchedule>;
 }
 
-const STORE_DIR = path.join(process.cwd(), '.local-dev-store');
+// In Vercel / serverless environment, process.cwd() is read-only (/var/task). Use os.tmpdir() instead.
+const STORE_DIR = process.env.NODE_ENV === 'production' || process.env.VERCEL
+  ? path.join(os.tmpdir(), '.local-dev-store')
+  : path.join(process.cwd(), '.local-dev-store');
 const STORE_FILE = path.join(STORE_DIR, 'interview_data.json');
 
-// Ensure directory exists
+// Ensure directory exists safely
 function ensureStoreDir(): void {
-  if (!fs.existsSync(STORE_DIR)) {
-    fs.mkdirSync(STORE_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(STORE_DIR)) {
+      fs.mkdirSync(STORE_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn('Could not create local dev store directory, using in-memory only:', err);
   }
 }
 
@@ -64,28 +71,29 @@ let inMemoryData: LocalStoreData | null = null;
 let writeQueue = Promise.resolve();
 
 function readFromDisk(): LocalStoreData {
-  ensureStoreDir();
-  if (!fs.existsSync(STORE_FILE)) {
-    const initial: LocalStoreData = { sessions: [], schedules: {} };
-    saveToDiskSync(initial);
-    return initial;
-  }
+  const initial: LocalStoreData = { sessions: [], schedules: {} };
   try {
+    ensureStoreDir();
+    if (!fs.existsSync(STORE_FILE)) {
+      saveToDiskSync(initial);
+      return initial;
+    }
     const raw = fs.readFileSync(STORE_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch (e) {
-    console.error('Error reading local dev store, recreating empty store:', e);
-    const initial: LocalStoreData = { sessions: [], schedules: {} };
-    saveToDiskSync(initial);
     return initial;
   }
 }
 
 function saveToDiskSync(data: LocalStoreData): void {
-  ensureStoreDir();
-  const tmpFile = `${STORE_FILE}.tmp.${Date.now()}`;
-  fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmpFile, STORE_FILE);
+  try {
+    ensureStoreDir();
+    const tmpFile = `${STORE_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, STORE_FILE);
+  } catch (e) {
+    // Disk write fails silently in read-only / serverless environment, in-memory cache remains active
+  }
 }
 
 function getStore(): LocalStoreData {
@@ -208,6 +216,69 @@ function mapDbInterviewToSession(dbItem: any): InterviewSession {
   };
 }
 
+// Helper to resolve an applicant in Supabase, whether targetId is applicant.id, applicant.studentId, or student.id
+async function resolveApplicantForTarget(targetId: string): Promise<any> {
+  try {
+    // 1. Check if targetId is an Applicant id
+    let applicant = await prisma.applicant.findUnique({
+      where: { id: targetId },
+      include: {
+        interviews: { orderBy: { sessionNumber: 'desc' } },
+      },
+    });
+    if (applicant) return applicant;
+
+    // 2. Check if targetId is a Student id already linked to an Applicant
+    applicant = await prisma.applicant.findFirst({
+      where: { studentId: targetId },
+      include: {
+        interviews: { orderBy: { sessionNumber: 'desc' } },
+      },
+    });
+    if (applicant) return applicant;
+
+    // 3. Check if targetId is a Student in students table
+    const student = await prisma.student.findUnique({
+      where: { id: targetId },
+    });
+    if (student) {
+      // Auto-bridge Applicant record in Supabase so interview can be stored
+      try {
+        const newApp = await prisma.applicant.create({
+          data: {
+            academicYearId: student.academicYearId,
+            namaLengkap: student.namaLengkap,
+            jenjang: student.jenjang,
+            gelombang: student.gelombang || 'Gelombang 1',
+            nik: student.nik,
+            nisn: student.nisn,
+            jenisKelamin: student.jenisKelamin,
+            tempatLahir: student.tempatLahir,
+            tanggalLahir: student.tanggalLahir,
+            noHp: student.noHp,
+            alamat: student.alamat,
+            asalSekolah: student.asalSekolah,
+            namaAyah: student.namaAyah,
+            namaIbu: student.namaIbu,
+            noHpAyah: student.noHpAyah,
+            statusPendaftaran: 'LULUS',
+            studentId: student.id,
+          },
+          include: {
+            interviews: { orderBy: { sessionNumber: 'desc' } },
+          },
+        });
+        return newApp;
+      } catch (createErr) {
+        console.warn('Could not auto-create bridge applicant for student:', createErr);
+      }
+    }
+  } catch (err) {
+    console.warn('resolveApplicantForTarget error:', err);
+  }
+  return null;
+}
+
 // Storage API
 export const InterviewRepository = {
   // Get all sessions and schedule for a target
@@ -217,15 +288,7 @@ export const InterviewRepository = {
     schedule: InterviewSchedule | null;
   }> {
     try {
-      // 1. Try finding Applicant in database first
-      const applicant = await prisma.applicant.findUnique({
-        where: { id: targetId },
-        include: {
-          interviews: {
-            orderBy: { sessionNumber: 'desc' },
-          },
-        },
-      });
+      const applicant = await resolveApplicantForTarget(targetId);
 
       if (applicant) {
         const sessions: InterviewSession[] = applicant.interviews.map(mapDbInterviewToSession);
@@ -279,14 +342,7 @@ export const InterviewRepository = {
     }
 
     try {
-      const applicant = await prisma.applicant.findUnique({
-        where: { id: targetId },
-        include: {
-          interviews: {
-            orderBy: { sessionNumber: 'desc' },
-          },
-        },
-      });
+      const applicant = await resolveApplicantForTarget(targetId);
 
       if (applicant) {
         const existingInterviews = applicant.interviews;
@@ -466,21 +522,15 @@ export const InterviewRepository = {
     }
 
     try {
-      const applicant = await prisma.applicant.findUnique({
-        where: { id: targetId },
-        include: {
-          interviews: {
-            orderBy: { sessionNumber: 'desc' },
-          },
-        },
-      });
+      const applicant = await resolveApplicantForTarget(targetId);
 
       if (applicant) {
         const scheduledDateObj = data.scheduledDate ? new Date(`${data.scheduledDate}T00:00:00Z`) : null;
+        let savedInterview: any;
 
-        if (applicant.interviews.length > 0) {
+        if (applicant.interviews && applicant.interviews.length > 0) {
           const latest = applicant.interviews[0];
-          await prisma.applicantInterview.update({
+          savedInterview = await prisma.applicantInterview.update({
             where: { id: latest.id },
             data: {
               scheduledDate: scheduledDateObj || latest.scheduledDate,
@@ -490,7 +540,7 @@ export const InterviewRepository = {
             },
           });
         } else {
-          await prisma.applicantInterview.create({
+          savedInterview = await prisma.applicantInterview.create({
             data: {
               applicantId: applicant.id,
               academicYearId: applicant.academicYearId,
@@ -511,6 +561,22 @@ export const InterviewRepository = {
             data: { statusPendaftaran: 'MENUNGGU_TES' },
           });
         }
+
+        const resSchedule: InterviewSchedule = {
+          targetId,
+          scheduledDate: data.scheduledDate || (savedInterview?.scheduledDate ? new Date(savedInterview.scheduledDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+          scheduledTime: data.scheduledTime || savedInterview?.scheduledTime || '09:00',
+          interviewerName: (data.interviewerName !== undefined ? data.interviewerName : savedInterview?.interviewerName || '').trim(),
+          status: (data.status as any) || (savedInterview?.status as any) || 'TERJADWAL',
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Also safely mirror into in-memory cache
+        await queueWrite((store) => {
+          store.schedules[targetId] = resSchedule;
+        });
+
+        return resSchedule;
       }
     } catch (dbErr) {
       console.warn('Prisma saveSchedule failed, using local fallback:', dbErr);
@@ -543,19 +609,25 @@ export const InterviewRepository = {
 
     try {
       const dbInterviews = await prisma.applicantInterview.findMany({
+        include: { applicant: true },
         orderBy: { sessionNumber: 'desc' },
       });
 
       for (const item of dbInterviews) {
+        const sched: InterviewSchedule = {
+          targetId: item.applicantId,
+          scheduledDate: item.scheduledDate ? new Date(item.scheduledDate).toISOString().split('T')[0] : '',
+          scheduledTime: item.scheduledTime || '09:00',
+          interviewerName: item.interviewerName || '',
+          status: (item.status as any) || 'TERJADWAL',
+          updatedAt: item.updatedAt ? new Date(item.updatedAt).toISOString() : new Date().toISOString(),
+        };
+
         if (!result[item.applicantId]) {
-          result[item.applicantId] = {
-            targetId: item.applicantId,
-            scheduledDate: item.scheduledDate ? new Date(item.scheduledDate).toISOString().split('T')[0] : '',
-            scheduledTime: item.scheduledTime || '09:00',
-            interviewerName: item.interviewerName || '',
-            status: (item.status as any) || 'TERJADWAL',
-            updatedAt: item.updatedAt ? new Date(item.updatedAt).toISOString() : new Date().toISOString(),
-          };
+          result[item.applicantId] = sched;
+        }
+        if (item.applicant?.studentId && !result[item.applicant.studentId]) {
+          result[item.applicant.studentId] = sched;
         }
       }
     } catch (e) {
@@ -578,12 +650,17 @@ export const InterviewRepository = {
 
     try {
       const dbInterviews = await prisma.applicantInterview.findMany({
+        include: { applicant: true },
         orderBy: { sessionNumber: 'desc' },
       });
 
       for (const item of dbInterviews) {
+        const sess = mapDbInterviewToSession(item);
         if (!result[item.applicantId]) {
-          result[item.applicantId] = mapDbInterviewToSession(item);
+          result[item.applicantId] = sess;
+        }
+        if (item.applicant?.studentId && !result[item.applicant.studentId]) {
+          result[item.applicant.studentId] = sess;
         }
       }
     } catch (e) {

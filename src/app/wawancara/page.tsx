@@ -70,6 +70,8 @@ export default function WawancaraListPage() {
   const [modalInterviewer, setModalInterviewer] = useState('');
   const [modalStatus, setModalStatus] = useState<LocalSchedule['status']>('TERJADWAL');
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStudents();
@@ -97,6 +99,40 @@ export default function WawancaraListPage() {
     setSelectedStudent(st);
     setSelectedSession(session);
     setIsResultModalOpen(true);
+  };
+
+  // Promote applicant directly from interview page
+  const handlePromoteToStudent = async (st: Student) => {
+    if (!confirm(`Proses ${st.namaLengkap} menjadi Data Siswa resmi di yayasan?`)) return;
+
+    setPromotingId(st.id);
+    try {
+      const res = await fetch(`/api/applicants/${st.id}/promote`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (json.success) {
+        setActionNotice({
+          type: 'success',
+          message: json.message || `Berhasil! ${st.namaLengkap} telah resmi terdaftar di Data Siswa.`,
+        });
+        await fetchStudents();
+      } else {
+        setActionNotice({
+          type: 'error',
+          message: json.error || 'Gagal memproses ke Data Siswa',
+        });
+      }
+    } catch (err) {
+      console.error('Promote error:', err);
+      setActionNotice({
+        type: 'error',
+        message: 'Terjadi kesalahan koneksi saat memproses data siswa.',
+      });
+    } finally {
+      setPromotingId(null);
+      setTimeout(() => setActionNotice(null), 6000);
+    }
   };
 
   const fetchStudents = async () => {
@@ -199,15 +235,26 @@ export default function WawancaraListPage() {
           [selectedStudent.id]: json.data,
         }));
         setIsScheduleModalOpen(false);
+        setActionNotice({
+          type: 'success',
+          message: `Jadwal wawancara untuk ${selectedStudent.namaLengkap} berhasil disimpan!`,
+        });
         await fetchStudents();
       } else {
-        alert(json.error || 'Gagal menyimpan jadwal wawancara');
+        setActionNotice({
+          type: 'error',
+          message: json.error || 'Gagal menyimpan jadwal wawancara',
+        });
       }
     } catch (err) {
       console.error('Failed to save schedule:', err);
-      alert('Gagal menghubungi backend penyimpan jadwal');
+      setActionNotice({
+        type: 'error',
+        message: 'Gagal menghubungi server untuk menyimpan jadwal',
+      });
     } finally {
       setIsSavingSchedule(false);
+      setTimeout(() => setActionNotice(null), 6000);
     }
   };
 
@@ -244,6 +291,29 @@ export default function WawancaraListPage() {
 
   return (
     <div className="space-y-4 w-full">
+      {/* Top Banner Alert Notice */}
+      {actionNotice && (
+        <div
+          className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center justify-between shadow-xs transition-all ${
+            actionNotice.type === 'success'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              : 'bg-rose-50 border-rose-300 text-rose-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{actionNotice.message}</span>
+          </div>
+          <button onClick={() => setActionNotice(null)} className="text-slate-400 hover:text-slate-700 px-1 font-bold">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Sleek Header & Compact Metrics Bar */}
       <div className="bg-white px-5 py-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -527,6 +597,36 @@ export default function WawancaraListPage() {
 
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {/* Tombol Proses ke Data Siswa untuk pendaftar yang sudah LULUS */}
+                          {st.sourceType === 'APPLICANT' && st.statusPendaftaran === 'LULUS' && !st.studentId && (
+                            <button
+                              type="button"
+                              disabled={promotingId === st.id}
+                              onClick={() => handlePromoteToStudent(st)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 rounded-lg shadow-xs transition active:scale-95"
+                              title="Luluskan & Daftarkan ke Data Siswa Resmi"
+                            >
+                              {promotingId === st.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                              )}
+                              <span>Proses ke Siswa</span>
+                            </button>
+                          )}
+
+                          {/* Badge jika sudah resmi menjadi Siswa */}
+                          {(st.studentId || st.sourceType === 'STUDENT') && (
+                            <Link
+                              href="/siswa"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition"
+                              title="Santri sudah terdaftar di Data Siswa (Klik untuk buka)"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Siswa Resmi ✓</span>
+                            </Link>
+                          )}
+
                           {session && (
                             <button
                               type="button"
