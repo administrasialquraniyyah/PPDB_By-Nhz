@@ -112,7 +112,6 @@ export default function DataPendaftarPage() {
     try {
       const params = new URLSearchParams();
       params.append('academicYearId', selectedYearId);
-      if (statusFilter !== 'ALL') params.append('status', statusFilter);
       if (jenjangFilter !== 'ALL') params.append('jenjang', jenjangFilter);
       if (gelombangFilter !== 'ALL') params.append('gelombang', gelombangFilter);
       if (genderFilter !== 'ALL') params.append('jenisKelamin', genderFilter);
@@ -132,7 +131,7 @@ export default function DataPendaftarPage() {
 
   useEffect(() => {
     fetchApplicants();
-  }, [selectedYearId, statusFilter, jenjangFilter, gelombangFilter, genderFilter, search]);
+  }, [selectedYearId, jenjangFilter, gelombangFilter, genderFilter, search]);
 
   // Open Detail Modal
   const handleOpenDetail = (app: Applicant) => {
@@ -291,11 +290,27 @@ export default function DataPendaftarPage() {
   };
 
   // Metric counts
-  const countTotal = applicants.length;
-  const countTerdaftar = applicants.filter((a) => a.statusPendaftaran === 'TERDAFTAR').length;
-  const countTes = applicants.filter((a) => a.statusPendaftaran === 'MENUNGGU_TES' || a.statusPendaftaran === 'MENGIKUTI_TES').length;
-  const countLulus = applicants.filter((a) => a.statusPendaftaran === 'LULUS').length;
+  const countTotalAktif = applicants.filter((a) => !a.studentId && a.statusPendaftaran !== 'DIBATALKAN').length;
+  const countTerdaftar = applicants.filter((a) => !a.studentId && a.statusPendaftaran === 'TERDAFTAR').length;
+  const countTes = applicants.filter((a) => !a.studentId && (a.statusPendaftaran === 'MENUNGGU_TES' || a.statusPendaftaran === 'MENGIKUTI_TES')).length;
+  const countLulus = applicants.filter((a) => !a.studentId && a.statusPendaftaran === 'LULUS').length;
   const countBatal = applicants.filter((a) => a.statusPendaftaran === 'DIBATALKAN').length;
+  const countSudahSiswa = applicants.filter((a) => Boolean(a.studentId)).length;
+
+  // Filter displayed applicants (hides promoted students by default)
+  const displayedApplicants = applicants.filter((app) => {
+    if (statusFilter === 'SUDAH_SISWA') {
+      return Boolean(app.studentId);
+    }
+    // By default, hide applicants who have already become official students!
+    if (app.studentId) {
+      return false;
+    }
+    if (statusFilter !== 'ALL' && app.statusPendaftaran !== statusFilter) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4 w-full">
@@ -364,10 +379,10 @@ export default function DataPendaftarPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
         <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total Pendaftar</span>
-          <div className="font-extrabold text-base sm:text-lg text-slate-900 mt-0.5">{countTotal} Santri</div>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Pendaftar Aktif</span>
+          <div className="font-extrabold text-base sm:text-lg text-slate-900 mt-0.5">{countTotalAktif} Santri</div>
         </div>
         <div className="bg-white p-3 rounded-xl border border-blue-200/60 bg-blue-50/20 shadow-xs">
           <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider block">Terdaftar Baru</span>
@@ -381,7 +396,23 @@ export default function DataPendaftarPage() {
           <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">Dinyatakan Lulus</span>
           <div className="font-extrabold text-base sm:text-lg text-emerald-800 mt-0.5">{countLulus} Santri</div>
         </div>
-        <div className="bg-white p-3 rounded-xl border border-slate-200 bg-slate-50/50 shadow-xs col-span-2 sm:col-span-1">
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'SUDAH_SISWA' ? 'ALL' : 'SUDAH_SISWA')}
+          className={`p-3 rounded-xl border shadow-xs cursor-pointer transition ${
+            statusFilter === 'SUDAH_SISWA'
+              ? 'bg-teal-700 border-teal-800 text-white shadow-md ring-2 ring-teal-500'
+              : 'bg-teal-50/40 border-teal-200 hover:bg-teal-50 text-slate-900'
+          }`}
+          title="Klik untuk melihat pendaftar yang sudah resmi masuk ke Data Siswa"
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-wider block ${statusFilter === 'SUDAH_SISWA' ? 'text-teal-100' : 'text-teal-700'}`}>
+            Resmi Jadi Siswa
+          </span>
+          <div className={`font-extrabold text-base sm:text-lg mt-0.5 ${statusFilter === 'SUDAH_SISWA' ? 'text-white' : 'text-teal-900'}`}>
+            {countSudahSiswa} Santri
+          </div>
+        </div>
+        <div className="bg-white p-3 rounded-xl border border-slate-200 bg-slate-50/50 shadow-xs">
           <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Dibatalkan</span>
           <div className="font-extrabold text-base sm:text-lg text-slate-700 mt-0.5">{countBatal} Santri</div>
         </div>
@@ -406,13 +437,14 @@ export default function DataPendaftarPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-emerald-500"
           >
-            <option value="ALL">Semua Status</option>
-            <option value="TERDAFTAR">Terdaftar</option>
+            <option value="ALL">Semua Pendaftar Aktif</option>
+            <option value="TERDAFTAR">Terdaftar Baru</option>
             <option value="MENUNGGU_TES">Menunggu Tes</option>
             <option value="MENGIKUTI_TES">Mengikuti Tes</option>
-            <option value="LULUS">Lulus</option>
+            <option value="LULUS">Lulus (Siap Masuk Siswa)</option>
             <option value="TIDAK_LULUS">Tidak Lulus</option>
             <option value="DIBATALKAN">Dibatalkan / Mundur</option>
+            <option value="SUDAH_SISWA">Sudah Masuk Data Siswa ({countSudahSiswa})</option>
           </select>
 
           <select
@@ -472,7 +504,7 @@ export default function DataPendaftarPage() {
                     Memuat data pendaftar...
                   </td>
                 </tr>
-              ) : applicants.length === 0 ? (
+              ) : displayedApplicants.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
                     <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -480,7 +512,7 @@ export default function DataPendaftarPage() {
                   </td>
                 </tr>
               ) : (
-                applicants.map((app, idx) => {
+                displayedApplicants.map((app, idx) => {
                   const isCancelled = app.statusPendaftaran === 'DIBATALKAN';
                   const isPassed = app.statusPendaftaran === 'LULUS';
                   const hasStudent = Boolean(app.studentId);

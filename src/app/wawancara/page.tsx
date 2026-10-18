@@ -260,6 +260,8 @@ export default function WawancaraListPage() {
 
   // Filter
   const filteredStudents = students.filter((st) => {
+    // If an applicant has already been promoted to official student, they are no longer in the applicant interview queue
+    if (st.sourceType === 'APPLICANT' && st.studentId) return false;
     if (sourceFilter !== 'ALL' && st.sourceType !== sourceFilter) return false;
     if (jenjangFilter !== 'ALL' && st.jenjang !== jenjangFilter) return false;
     const stSchedule = schedules[st.id];
