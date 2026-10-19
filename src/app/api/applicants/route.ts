@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { verifySession } from '@/lib/authGuard';
 
 // Helper to get form fee based on jenjang from app_settings
 async function getFormFeeForJenjang(jenjang: string): Promise<number> {
@@ -19,6 +20,9 @@ async function getFormFeeForJenjang(jenjang: string): Promise<number> {
 // GET /api/applicants - List all applicants with comprehensive filters
 export async function GET(request: NextRequest) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT', 'PEWAWANCARA']);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const academicYearId = searchParams.get('academicYearId');
     const status = searchParams.get('status'); // 'ALL' | 'TERDAFTAR' | 'LULUS' | 'DIBATALKAN' | etc.
@@ -37,8 +41,13 @@ export async function GET(request: NextRequest) {
       where.statusPendaftaran = status;
     }
 
-    if (jenjang && jenjang !== 'ALL') {
-      where.jenjang = jenjang;
+    // Scoped Jenjang for UNIT (e.g. Unit SD)
+    const effectiveJenjang = (user?.role === 'UNIT' && user?.jenjangScope)
+      ? user.jenjangScope
+      : jenjang;
+
+    if (effectiveJenjang && effectiveJenjang !== 'ALL') {
+      where.jenjang = effectiveJenjang;
     }
 
     if (gelombang && gelombang !== 'ALL') {
@@ -90,12 +99,19 @@ export async function GET(request: NextRequest) {
 // POST /api/applicants - Manually create a single applicant
 export async function POST(request: NextRequest) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
+    const forcedJenjang = (user?.role === 'UNIT' && user?.jenjangScope)
+      ? user.jenjangScope
+      : body.jenjang;
+
     const {
       academicYearId,
       noPendaftaran,
       namaLengkap,
-      jenjang,
+      jenjang = forcedJenjang,
       gelombang,
       nik,
       nisn,

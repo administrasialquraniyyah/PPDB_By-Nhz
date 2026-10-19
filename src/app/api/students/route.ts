@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { triggerAutoBackup } from '@/lib/backupService';
 import { ensureDbSchema } from '@/lib/dbInit';
+import { verifySession } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     await ensureDbSchema();
     const { searchParams } = new URL(request.url);
     const academicYearId = searchParams.get('academicYearId');
@@ -29,8 +33,13 @@ export async function GET(request: Request) {
       where.status = status;
     }
 
-    if (jenjang) {
-      where.jenjang = jenjang;
+    // Scoped Jenjang: If user is UNIT with a specific scope (e.g. Unit SD), strictly lock to that scope
+    const effectiveJenjang = (user?.role === 'UNIT' && user?.jenjangScope)
+      ? user.jenjangScope
+      : jenjang;
+
+    if (effectiveJenjang) {
+      where.jenjang = effectiveJenjang;
     }
 
     if (gelombang) {
@@ -94,11 +103,20 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
+
+    // If user is UNIT, force student jenjang to unit scope
+    const forcedJenjang = (user?.role === 'UNIT' && user?.jenjangScope)
+      ? user.jenjangScope
+      : (body.jenjang || 'SMP');
+
     const {
       academicYearId,
       namaLengkap,
-      jenjang = 'SMP',
+      jenjang = forcedJenjang,
       gelombang = 'Gelombang 1',
       noInduk,
       nik,

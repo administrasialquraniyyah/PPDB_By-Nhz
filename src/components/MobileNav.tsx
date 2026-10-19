@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
@@ -12,21 +12,42 @@ import {
   FileSpreadsheet,
   X,
   FileUp,
-  ClipboardList,
 } from 'lucide-react';
 
 export default function MobileNav() {
   const pathname = usePathname();
   const { isMobileNavOpen, setIsMobileNavOpen } = useApp();
+  const [userRole, setUserRole] = useState<'ADMIN' | 'PANITIA' | 'UNIT' | 'PEWAWANCARA' | null>(null);
 
-  // Bottom quick links
-  const quickLinks = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Pendaftar', href: '/pendaftar', icon: ClipboardList },
-    { name: 'Siswa', href: '/siswa', icon: Users },
-    { name: 'Keuangan', href: '/keuangan', icon: Wallet },
-    { name: 'Laporan', href: '/laporan', icon: FileSpreadsheet },
-  ];
+  React.useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user) {
+          setUserRole(d.user.role);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Bottom quick links based on role
+  const quickLinks = userRole === 'ADMIN'
+    ? [
+        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { name: 'Import', href: '/import', icon: FileUp },
+        { name: 'Siswa', href: '/siswa', icon: Users },
+        { name: 'Keuangan', href: '/keuangan', icon: Wallet },
+        { name: 'Laporan', href: '/laporan', icon: FileSpreadsheet },
+      ]
+    : [
+        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { name: 'Pendaftar', href: '/pendaftar', icon: Users },
+        { name: 'Wawancara', href: '/wawancara', icon: LayoutDashboard },
+        { name: 'Siswa', href: '/siswa', icon: Users },
+        { name: 'Import', href: '/import', icon: FileUp },
+      ];
+
+  if (pathname === '/login') return null;
 
   return (
     <>
@@ -90,25 +111,30 @@ export default function MobileNav() {
               </div>
 
               <div className="py-3 space-y-1">
-                {navigationItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setIsMobileNavOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-                        isActive
-                          ? 'bg-emerald-50 text-emerald-800 font-semibold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-700' : 'text-slate-400'}`} />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-                })}
+                {navigationItems
+                  .filter((item) => {
+                    if (!userRole) return true;
+                    return item.roles.includes(userRole);
+                  })
+                  .map((item) => {
+                    const isActive = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsMobileNavOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-700' : 'text-slate-400'}`} />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
               </div>
             </div>
 

@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { verifySession } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const academicYearId = searchParams.get('academicYearId');
 
@@ -31,12 +35,17 @@ export async function GET(request: Request) {
       });
     }
 
-    // 2. Fetch all students in this academic year
+    // 2. Fetch students in this academic year (filtered if role is UNIT)
+    const studentWhere: any = {
+      academicYearId: targetYearId,
+      status: 'ACTIVE',
+    };
+    if (user?.role === 'UNIT' && user?.jenjangScope) {
+      studentWhere.jenjang = user.jenjangScope;
+    }
+
     const students = await prisma.student.findMany({
-      where: {
-        academicYearId: targetYearId,
-        status: 'ACTIVE',
-      },
+      where: studentWhere,
       include: {
         formPayment: true,
         recommendation: true,

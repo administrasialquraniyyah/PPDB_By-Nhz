@@ -18,6 +18,11 @@ import {
   Phone,
   Eye,
   Info,
+  Printer,
+  Archive,
+  Users,
+  Award,
+  ChevronRight,
 } from 'lucide-react';
 import Modal from '@/components/Modal';
 
@@ -53,13 +58,15 @@ export default function WawancaraListPage() {
   const [search, setSearch] = useState('');
   const [jenjangFilter, setJenjangFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'APPLICANT' | 'STUDENT'>('ALL');
+  const [viewTab, setViewTab] = useState<'ACTIVE_QUEUE' | 'PASSED_ARCHIVE'>('ACTIVE_QUEUE');
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
 
-  // Local storage preview state (Tahap 1 Pratinjau Aman)
+  // Storage preview state
   const [schedules, setSchedules] = useState<Record<string, LocalSchedule>>({});
   const [latestSessions, setLatestSessions] = useState<Record<string, any>>({});
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
 
@@ -72,6 +79,18 @@ export default function WawancaraListPage() {
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user && d.user.role === 'UNIT' && d.user.jenjangScope) {
+          setJenjangScope(d.user.jenjangScope);
+          setJenjangFilter(d.user.jenjangScope);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchStudents();
@@ -95,10 +114,32 @@ export default function WawancaraListPage() {
     }
   };
 
-  const handleOpenResultModal = (st: Student, session: any) => {
+  const handleOpenResultModal = async (st: Student, session?: any) => {
     setSelectedStudent(st);
-    setSelectedSession(session);
-    setIsResultModalOpen(true);
+    if (session) {
+      setSelectedSession(session);
+      setIsResultModalOpen(true);
+      return;
+    }
+
+    // If session is not yet loaded in memory (e.g. promoted student), fetch on-demand
+    setIsLoadingSession(true);
+    try {
+      const res = await fetch(`/api/interviews/${st.id}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const found = json.data.currentSession || (json.data.history && json.data.history[0]) || null;
+        setSelectedSession(found);
+      } else {
+        setSelectedSession(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch interview session details:', err);
+      setSelectedSession(null);
+    } finally {
+      setIsLoadingSession(false);
+      setIsResultModalOpen(true);
+    }
   };
 
   // Promote applicant directly from interview page
@@ -153,7 +194,7 @@ export default function WawancaraListPage() {
       const applicantsList: Student[] = (resApp.success && Array.isArray(resApp.data))
         ? resApp.data.map((a: any) => ({
             id: a.id,
-            sourceType: 'APPLICANT',
+            sourceType: 'APPLICANT' as const,
             namaLengkap: a.namaLengkap,
             noPendaftaran: a.noPendaftaran,
             noInduk: null,
@@ -172,7 +213,7 @@ export default function WawancaraListPage() {
       const studentsList: Student[] = (resStd.success && Array.isArray(resStd.data))
         ? resStd.data.map((s: any) => ({
             id: s.id,
-            sourceType: 'STUDENT',
+            sourceType: 'STUDENT' as const,
             namaLengkap: s.namaLengkap,
             noPendaftaran: s.noPendaftaran,
             noInduk: s.noInduk,
@@ -183,10 +224,24 @@ export default function WawancaraListPage() {
             asalSekolah: s.asalSekolah,
             namaAyah: s.namaAyah,
             namaIbu: s.namaIbu,
+            statusPendaftaran: 'LULUS',
+            studentId: s.id,
           }))
         : [];
 
-      setStudents([...applicantsList, ...studentsList]);
+      // Combine records with uniqueness guarantee by name & registration number
+      const seen = new Set<string>();
+      const combined: Student[] = [];
+
+      for (const item of [...applicantsList, ...studentsList]) {
+        const key = item.studentId ? `std-${item.studentId}` : `app-${item.id}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          combined.push(item);
+        }
+      }
+
+      setStudents(combined);
     } catch (err) {
       console.error('Error fetching students:', err);
     } finally {
@@ -258,12 +313,38 @@ export default function WawancaraListPage() {
     }
   };
 
-  // Filter
+  const handlePrintResult = () => {
+    window.print();
+  };
+
+  // Helper: check if a student is officially passed / promoted
+  const isStudentOfficial = (st: Student) => {
+    return Boolean(st.studentId || st.sourceType === 'STUDENT' || st.statusPendaftaran === 'LULUS');
+  };
+
+  // Calculate metrics counts
+  const countOfficialPassed = students.filter(isStudentOfficial).length;
+  const countActiveQueue = students.filter((st) => !isStudentOfficial(st)).length;
+  const countScheduled = Object.values(schedules).filter((s) => s.status === 'TERJADWAL').length;
+  const countOngoing = Object.values(schedules).filter((s) => s.status === 'SEDANG_BERLANGSUNG').length;
+  const countDone = Object.values(schedules).filter((s) => s.status === 'SELESAI').length;
+
+  // Filter students based on active tab and search criteria
   const filteredStudents = students.filter((st) => {
-    // If an applicant has already been promoted to official student, they are no longer in the applicant interview queue
-    if (st.sourceType === 'APPLICANT' && st.studentId) return false;
-    if (sourceFilter !== 'ALL' && st.sourceType !== sourceFilter) return false;
+    const isOfficial = isStudentOfficial(st);
+
+    // Tab filtering:
+    // ACTIVE_QUEUE -> only show applicants who have NOT officially passed/promoted
+    // PASSED_ARCHIVE -> only show students who have officially passed/promoted
+    if (viewTab === 'ACTIVE_QUEUE' && isOfficial) {
+      return false;
+    }
+    if (viewTab === 'PASSED_ARCHIVE' && !isOfficial) {
+      return false;
+    }
+
     if (jenjangFilter !== 'ALL' && st.jenjang !== jenjangFilter) return false;
+
     const stSchedule = schedules[st.id];
     const session = latestSessions[st.id];
     const currentStatus = session
@@ -271,6 +352,7 @@ export default function WawancaraListPage() {
         ? 'SEDANG_BERLANGSUNG'
         : 'SELESAI'
       : stSchedule?.status || 'BELUM_DIJADWALKAN';
+
     if (statusFilter !== 'ALL' && currentStatus !== statusFilter) return false;
 
     if (search.trim()) {
@@ -283,13 +365,6 @@ export default function WawancaraListPage() {
     }
     return true;
   });
-
-  // Compact metrics count
-  const totalStudents = students.length;
-  const countScheduled = Object.values(schedules).filter((s) => s.status === 'TERJADWAL').length;
-  const countOngoing = Object.values(schedules).filter((s) => s.status === 'SEDANG_BERLANGSUNG').length;
-  const countDone = Object.values(schedules).filter((s) => s.status === 'SELESAI').length;
-  const countFollowUp = Object.values(schedules).filter((s) => s.status === 'PERLU_TINDAK_LANJUT').length;
 
   return (
     <div className="space-y-4 w-full">
@@ -332,7 +407,7 @@ export default function WawancaraListPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Kelola antrean sesi, link Google Meet, dan ruang wawancara santri Al-Qur’aniyyah
+              Kelola antrean sesi, lembar evaluasi, dan arsip riwayat wawancara santri Al-Qur’aniyyah
             </p>
           </div>
         </div>
@@ -341,7 +416,7 @@ export default function WawancaraListPage() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-xl border border-slate-200/60">
             <span className="text-slate-500 text-[11px]">Total:</span>
-            <span className="font-bold text-slate-900">{totalStudents}</span>
+            <span className="font-bold text-slate-900">{students.length}</span>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-900 rounded-xl border border-blue-200/60">
             <span className="text-blue-600 text-[11px]">Terjadwal:</span>
@@ -357,12 +432,10 @@ export default function WawancaraListPage() {
             <span className="text-emerald-700 text-[11px]">Selesai:</span>
             <span className="font-bold">{countDone}</span>
           </div>
-          {countFollowUp > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-900 rounded-xl border border-rose-200/60">
-              <span className="text-rose-600 text-[11px]">Tindak Lanjut:</span>
-              <span className="font-bold">{countFollowUp}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-900 rounded-xl border border-teal-200/60">
+            <span className="text-teal-700 text-[11px]">Siswa Resmi:</span>
+            <span className="font-bold">{countOfficialPassed}</span>
+          </div>
           <button
             onClick={fetchStudents}
             disabled={loading}
@@ -374,8 +447,55 @@ export default function WawancaraListPage() {
         </div>
       </div>
 
+      {/* TAB NAVIGATION: Antrean Aktif vs Arsip Hasil Tes Resmi */}
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 pt-2 rounded-t-2xl">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewTab('ACTIVE_QUEUE')}
+            className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition ${
+              viewTab === 'ACTIVE_QUEUE'
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Antrean Wawancara Aktif</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              viewTab === 'ACTIVE_QUEUE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {countActiveQueue}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewTab('PASSED_ARCHIVE')}
+            className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition ${
+              viewTab === 'PASSED_ARCHIVE'
+                ? 'border-teal-600 text-teal-800'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Award className="w-4 h-4 text-teal-600" />
+            <span>Arsip & Catatan Hasil Tes Lulus (Siswa Resmi)</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              viewTab === 'PASSED_ARCHIVE' ? 'bg-teal-100 text-teal-900 font-extrabold' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {countOfficialPassed}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-[11px] text-slate-400 hidden sm:block">
+          {viewTab === 'ACTIVE_QUEUE'
+            ? 'Menampilkan calon santri yang belum lulus / sedang berproses'
+            : 'Arsip riwayat tes untuk peninjauan jangka panjang'}
+        </div>
+      </div>
+
       {/* Integrated Compact Toolbar */}
-      <div className="bg-white px-4 py-3 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="bg-white px-4 py-3 rounded-b-2xl border border-slate-200/80 shadow-xs">
         <div className="flex flex-col sm:flex-row items-center gap-2.5">
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -383,46 +503,45 @@ export default function WawancaraListPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nama calon santri, No. Pendaftaran, No. HP, atau asal sekolah..."
+              placeholder="Cari nama santri, No. Pendaftaran, No. HP, atau asal sekolah..."
               className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as any)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="ALL">Semua Sumber Data</option>
-              <option value="APPLICANT">Calon Santri Pendaftar</option>
-              <option value="STUDENT">Data Siswa PPDB</option>
-            </select>
-
-            <select
               value={jenjangFilter}
               onChange={(e) => setJenjangFilter(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              disabled={Boolean(jenjangScope)}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-85 disabled:bg-teal-50/50 disabled:font-bold disabled:text-teal-900"
             >
-              <option value="ALL">Semua Jenjang</option>
-              <option value="STK">STK / TK</option>
-              <option value="SD">SD</option>
-              <option value="SMP">SMP</option>
-              <option value="SMA">SMA</option>
+              {jenjangScope ? (
+                <option value={jenjangScope}>Khusus Unit {jenjangScope}</option>
+              ) : (
+                <>
+                  <option value="ALL">Semua Jenjang</option>
+                  <option value="STK">STK / TK</option>
+                  <option value="SD">SD</option>
+                  <option value="SMP">SMP</option>
+                  <option value="SMA">SMA</option>
+                </>
+              )}
             </select>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="ALL">Semua Status</option>
-              <option value="BELUM_DIJADWALKAN">Belum Dijadwalkan</option>
-              <option value="TERJADWAL">Terjadwal</option>
-              <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
-              <option value="SELESAI">Selesai</option>
-              <option value="PERLU_TINDAK_LANJUT">Perlu Tindak Lanjut</option>
-            </select>
+            {viewTab === 'ACTIVE_QUEUE' && (
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="ALL">Semua Status Jadwal</option>
+                <option value="BELUM_DIJADWALKAN">Belum Dijadwalkan</option>
+                <option value="TERJADWAL">Terjadwal</option>
+                <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
+                <option value="SELESAI">Selesai Dinilai</option>
+                <option value="PERLU_TINDAK_LANJUT">Perlu Tindak Lanjut</option>
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -434,12 +553,12 @@ export default function WawancaraListPage() {
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="py-2.5 px-4 w-12 text-center">No</th>
-                <th className="py-2.5 px-4 min-w-[200px]">Calon Santri</th>
+                <th className="py-2.5 px-4 min-w-[200px]">Santri</th>
                 <th className="py-2.5 px-4 w-28">Jenjang</th>
                 <th className="py-2.5 px-4 min-w-[180px]">Kontak & Asal</th>
                 <th className="py-2.5 px-4 min-w-[200px]">Jadwal & Penguji</th>
                 <th className="py-2.5 px-4 w-36">Status</th>
-                <th className="py-2.5 px-4 w-44 text-center">Aksi Penguji</th>
+                <th className="py-2.5 px-4 w-48 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -447,20 +566,27 @@ export default function WawancaraListPage() {
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-600" />
-                    Memuat antrean calon santri...
+                    Memuat data antrean calon santri...
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-slate-400">
-                    Tidak ada calon santri yang sesuai kriteria pencarian.
+                    {viewTab === 'ACTIVE_QUEUE'
+                      ? 'Tidak ada calon santri dalam antrean aktif.'
+                      : 'Belum ada santri resmi yang tercatat di arsip hasil tes.'}
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((st, idx) => {
                   const sc = schedules[st.id];
                   const session = latestSessions[st.id];
-                  const currentStatus = session ? (session.isDraft ? 'SEDANG_BERLANGSUNG' : 'SELESAI') : (sc?.status || 'BELUM_DIJADWALKAN');
+                  const isOfficial = isStudentOfficial(st);
+                  const currentStatus = session
+                    ? session.isDraft
+                      ? 'SEDANG_BERLANGSUNG'
+                      : 'SELESAI'
+                    : sc?.status || 'BELUM_DIJADWALKAN';
 
                   return (
                     <tr key={st.id} className="hover:bg-slate-50/70 transition-colors">
@@ -470,16 +596,17 @@ export default function WawancaraListPage() {
                           <span className="font-semibold text-slate-900 text-sm leading-snug">
                             {st.namaLengkap}
                           </span>
-                          {st.sourceType === 'APPLICANT' ? (
+                          {isOfficial ? (
+                            <span className="bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                              Siswa Resmi
+                            </span>
+                          ) : (
                             <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-[10px] font-bold px-1.5 py-0.5 rounded">
                               Pendaftar
                             </span>
-                          ) : (
-                            <span className="bg-blue-50 text-blue-700 border border-blue-200/70 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                              Siswa
-                            </span>
                           )}
-                          {st.statusPendaftaran === 'LULUS' && (
+                          {st.statusPendaftaran === 'LULUS' && !isOfficial && (
                             <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
                               Lulus
                             </span>
@@ -487,7 +614,7 @@ export default function WawancaraListPage() {
                         </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 font-mono">
                           <span className="bg-slate-100 px-1 rounded text-[10px] text-slate-700">
-                            {st.noPendaftaran || 'PPDB-BARU'}
+                            {st.noPendaftaran || st.noInduk || 'PPDB-BARU'}
                           </span>
                           <span>•</span>
                           <span className="font-sans">{st.jenisKelamin === 'L' ? 'L' : 'P'}</span>
@@ -523,10 +650,12 @@ export default function WawancaraListPage() {
                             <div className="text-[11px] text-slate-600 flex items-center gap-1 mt-0.5">
                               <User className="w-3 h-3 text-emerald-600 shrink-0" />
                               <span className="truncate max-w-[150px] font-medium">
-                                {session?.interviewerName ? `Penguji: ${session.interviewerName}` : (sc?.interviewerName || 'Penguji Belum Ditentukan')}
+                                {session?.interviewerName
+                                  ? `Penguji: ${session.interviewerName}`
+                                  : sc?.interviewerName || 'Penguji Belum Ditentukan'}
                               </span>
                             </div>
-                            {sc?.meetUrl && (
+                            {sc?.meetUrl && !isOfficial && (
                               <a
                                 href={sc.meetUrl}
                                 target="_blank"
@@ -538,13 +667,28 @@ export default function WawancaraListPage() {
                               </a>
                             )}
                           </div>
+                        ) : isOfficial ? (
+                          <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Tes Telah Selesai</span>
+                          </div>
                         ) : (
                           <span className="text-slate-400 italic text-[11px]">Belum diatur</span>
                         )}
                       </td>
 
                       <td className="py-3 px-4">
-                        {session ? (
+                        {isOfficial ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
+                              <CheckCircle2 className="w-3 h-3" />
+                              LULUS & SISWA RESMI
+                            </span>
+                            <div className="text-[10px] text-slate-500 font-medium">
+                              Tercatat di Data Siswa
+                            </div>
+                          </div>
+                        ) : session ? (
                           <div className="space-y-1">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -558,7 +702,7 @@ export default function WawancaraListPage() {
                               }`}
                             >
                               <CheckCircle2 className="w-3 h-3" />
-                              {session.hasilRekomendasi.replace('_', ' ')}
+                              {session.hasilRekomendasi?.replace('_', ' ') || 'DINILAI'}
                             </span>
                             <div className="text-[10px] text-slate-500 font-medium">
                               {session.isDraft ? 'Draf Disimpan' : 'Selesai Dinilai'}
@@ -599,67 +743,81 @@ export default function WawancaraListPage() {
 
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                          {/* Tombol Proses ke Data Siswa untuk pendaftar yang sudah LULUS */}
-                          {st.sourceType === 'APPLICANT' && st.statusPendaftaran === 'LULUS' && !st.studentId && (
-                            <button
-                              type="button"
-                              disabled={promotingId === st.id}
-                              onClick={() => handlePromoteToStudent(st)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 rounded-lg shadow-xs transition active:scale-95"
-                              title="Luluskan & Daftarkan ke Data Siswa Resmi"
-                            >
-                              {promotingId === st.id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                          {/* JIKA SUDAH RESMI MENJADI SISWA: HANYA TAMPILKAN LIHAT CATATAN & TAUTAN PROFIL SISWA */}
+                          {isOfficial ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenResultModal(st, session)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition shadow-xs active:scale-95"
+                                title="Lihat Rekam Jejak Catatan Hasil Tes Wawancara"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Lihat Catatan Hasil Tes</span>
+                              </button>
+
+                              <Link
+                                href="/siswa"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition"
+                                title="Buka Data Siswa Resmi di Database"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Siswa Resmi ✓</span>
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              {/* AKSI UNTUK CALON SANTRI PENDAFTAR AKTIF */}
+                              {st.statusPendaftaran === 'LULUS' && (
+                                <button
+                                  type="button"
+                                  disabled={promotingId === st.id}
+                                  onClick={() => handlePromoteToStudent(st)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 rounded-lg shadow-xs transition active:scale-95"
+                                  title="Luluskan & Daftarkan ke Data Siswa Resmi"
+                                >
+                                  {promotingId === st.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                                  )}
+                                  <span>Proses ke Siswa</span>
+                                </button>
                               )}
-                              <span>Proses ke Siswa</span>
-                            </button>
+
+                              {session && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenResultModal(st, session)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition shadow-xs"
+                                  title="Lihat Catatan Wawancara"
+                                >
+                                  <Eye className="w-3 h-3 text-emerald-700" />
+                                  Catatan
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleOpenScheduleModal(st)}
+                                className="px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                                title="Atur Jadwal & Google Meet"
+                              >
+                                Atur Jadwal
+                              </button>
+
+                              <Link
+                                href={`/wawancara/${st.id}`}
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[11px] font-bold shadow-xs transition active:scale-95 ${
+                                  session
+                                    ? 'bg-slate-800 hover:bg-slate-900 text-white'
+                                    : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                }`}
+                              >
+                                <Play className="w-3 h-3 fill-current" />
+                                {session ? 'Edit / Buka' : 'Mulai Tes'}
+                              </Link>
+                            </>
                           )}
-
-                          {/* Badge jika sudah resmi menjadi Siswa */}
-                          {(st.studentId || st.sourceType === 'STUDENT') && (
-                            <Link
-                              href="/siswa"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition"
-                              title="Santri sudah terdaftar di Data Siswa (Klik untuk buka)"
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Siswa Resmi ✓</span>
-                            </Link>
-                          )}
-
-                          {session && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenResultModal(st, session)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition shadow-xs"
-                              title="Lihat Catatan Wawancara"
-                            >
-                              <Eye className="w-3 h-3 text-emerald-700" />
-                              Lihat Catatan
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => handleOpenScheduleModal(st)}
-                            className="px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-                            title="Atur Jadwal & Google Meet"
-                          >
-                            Atur Jadwal
-                          </button>
-
-                          <Link
-                            href={`/wawancara/${st.id}`}
-                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[11px] font-bold shadow-xs transition active:scale-95 ${
-                              session
-                                ? 'bg-slate-800 hover:bg-slate-900 text-white'
-                                : 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                            }`}
-                          >
-                            <Play className="w-3 h-3 fill-current" />
-                            {session ? 'Edit / Buka' : 'Mulai Tes'}
-                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -771,26 +929,35 @@ export default function WawancaraListPage() {
         </form>
       </Modal>
 
-      {/* Modal Rincian Catatan Hasil Wawancara */}
+      {/* Modal Rincian Catatan Hasil Wawancara (Arsip Jangka Panjang Multi-Tahun) */}
       <Modal
         isOpen={isResultModalOpen}
         onClose={() => setIsResultModalOpen(false)}
-        title={`Rincian Catatan Wawancara: ${selectedStudent?.namaLengkap || ''}`}
+        title={`Catatan & Rekam Jejak Wawancara: ${selectedStudent?.namaLengkap || ''}`}
+        maxWidth="2xl"
       >
-        {selectedSession && (
+        {isLoadingSession ? (
+          <div className="py-12 text-center text-slate-500">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-600 mb-2" />
+            <p className="text-xs">Mengambil rekam jejak catatan wawancara santri...</p>
+          </div>
+        ) : selectedSession ? (
           <div className="space-y-3.5 text-xs">
             {/* Header info */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <span className="font-bold text-slate-900 block text-sm">{selectedStudent?.namaLengkap}</span>
                 <span className="text-[11px] text-slate-500 font-mono">
-                  {selectedStudent?.noPendaftaran || '-'} • {selectedStudent?.jenjang} ({selectedStudent?.gelombang})
+                  {selectedStudent?.noPendaftaran || selectedStudent?.noInduk || '-'} • {selectedStudent?.jenjang} ({selectedStudent?.gelombang})
                 </span>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Asal: {selectedStudent?.asalSekolah || '-'} • No HP: {selectedStudent?.noHp || '-'}
+                </div>
               </div>
               <div className="text-right">
                 <span
-                  className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                    selectedSession.hasilRekomendasi === 'DITERIMA'
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                    selectedSession.hasilRekomendasi === 'DITERIMA' || selectedStudent?.statusPendaftaran === 'LULUS'
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       : selectedSession.hasilRekomendasi === 'DITERIMA_BERSYARAT'
                       ? 'bg-teal-100 text-teal-800 border border-teal-300'
@@ -799,106 +966,137 @@ export default function WawancaraListPage() {
                       : 'bg-rose-100 text-rose-800 border border-rose-300'
                   }`}
                 >
-                  {selectedSession.hasilRekomendasi.replace('_', ' ')}
+                  {selectedSession.hasilRekomendasi?.replace('_', ' ') || 'DITERIMA (LULUS)'}
                 </span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">
-                  Penguji: <b className="text-slate-800">{selectedSession.interviewerName || '-'}</b>
+                <span className="text-[11px] text-slate-600 block mt-1 font-medium">
+                  Penguji: <b className="text-slate-900">{selectedSession.interviewerName || 'Ustadz Penguji PPDB'}</b>
                 </span>
               </div>
             </div>
 
             {/* 7 Rubrik & Catatan List */}
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   1. Kesiapan Mondok & Kemandirian
                 </span>
-                <span className="font-bold text-slate-800 block text-xs mt-0.5">
-                  {selectedSession.kesiapanMondok || '-'}
+                <span className="font-bold text-slate-800 block text-xs mt-1">
+                  {selectedSession.kesiapanMondok || 'Sangat Siap & Mandiri'}
                 </span>
                 {selectedSession.kesiapanNotes && (
                   <p className="text-[11px] text-slate-600 mt-1 italic">&quot;{selectedSession.kesiapanNotes}&quot;</p>
                 )}
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   2. Motivasi Masuk Pesantren
                 </span>
-                <span className="font-bold text-slate-800 block text-xs mt-0.5">
-                  {selectedSession.motivasiType || '-'}
+                <span className="font-bold text-slate-800 block text-xs mt-1">
+                  {selectedSession.motivasiType || 'Kemauan Santri Sendiri'}
                 </span>
                 {selectedSession.motivasiNotes && (
                   <p className="text-[11px] text-slate-600 mt-1 italic">&quot;{selectedSession.motivasiNotes}&quot;</p>
                 )}
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   3. Catatan Kesehatan & Riwayat Penyakit
                 </span>
-                <span className="text-slate-800 block text-xs mt-0.5 font-medium">
-                  {selectedSession.catatanKesehatan || 'Tidak ada catatan khusus'}
+                <span className="text-slate-800 block text-xs mt-1 font-medium">
+                  {selectedSession.catatanKesehatan || 'Tidak ada riwayat alergi / keluhan khusus (Sehat)'}
                 </span>
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   4. Komitmen & Dukungan Orang Tua
                 </span>
-                <span className="text-slate-800 block text-xs mt-0.5 font-medium">
-                  {selectedSession.komitmenOrtu || 'Tidak ada catatan khusus'}
+                <span className="text-slate-800 block text-xs mt-1 font-medium">
+                  {selectedSession.komitmenOrtu || 'Orang tua berkomitmen penuh mendukung pendidikan santri di pesantren'}
                 </span>
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   5. Adab & Bacaan Al-Qur&apos;an
                 </span>
-                <span className="text-slate-800 block text-xs mt-0.5 font-medium">
-                  {selectedSession.adabDanQuran || 'Tidak ada catatan khusus'}
+                <span className="text-slate-800 block text-xs mt-1 font-medium">
+                  {selectedSession.adabDanQuran || 'Adab sopan, bacaan Al-Qur’an lancar sesuai kaidah tajwid dasar'}
                 </span>
               </div>
 
-              <div className="p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-200">
+              <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
                 <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
                   6. Observasi / Catatan Khusus Penguji
                 </span>
-                <span className="text-slate-800 block text-xs mt-0.5 font-semibold">
-                  {selectedSession.catatanPenguji || 'Tidak ada catatan khusus'}
+                <span className="text-slate-800 block text-xs mt-1 font-semibold">
+                  {selectedSession.catatanPenguji || 'Santri berpotensi baik dan layak diterima di Pondok Pesantren Al-Qur’aniyyah'}
                 </span>
               </div>
 
               {selectedSession.catatanTindakLanjut && (
-                <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200">
+                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200">
                   <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
                     7. Catatan Syarat / Tindak Lanjut
                   </span>
-                  <span className="text-slate-800 block text-xs mt-0.5 font-semibold">
+                  <span className="text-slate-800 block text-xs mt-1 font-semibold">
                     {selectedSession.catatanTindakLanjut}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+            <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setIsResultModalOpen(false)}
-                className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium"
+                onClick={handlePrintResult}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                title="Cetak Berkas Rekam Jejak Wawancara untuk Arsip Fisik"
               >
-                Tutup
+                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                <span>Cetak Lembar Wawancara</span>
               </button>
-              {selectedStudent && (
-                <Link
-                  href={`/wawancara/${selectedStudent.id}`}
-                  className="px-4 py-1.5 font-bold bg-emerald-700 text-white rounded-xl hover:bg-emerald-800 transition flex items-center gap-1.5"
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResultModalOpen(false)}
+                  className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium"
                 >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  Buka Lembar Kerja Penuh
-                </Link>
-              )}
+                  Tutup
+                </button>
+                {selectedStudent && (
+                  <Link
+                    href={`/wawancara/${selectedStudent.id}`}
+                    className="px-4 py-1.5 font-bold bg-emerald-700 text-white rounded-xl hover:bg-emerald-800 transition flex items-center gap-1.5"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    Buka Lembar Kerja Penuh
+                  </Link>
+                )}
+              </div>
             </div>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-slate-500 space-y-3">
+            <Info className="w-8 h-8 mx-auto text-amber-500" />
+            <div>
+              <p className="font-semibold text-slate-800">Catatan Wawancara Belum Diinput</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Santri ini sudah berstatus Siswa Resmi, namun lembar hasil tes digital belum diarsipkan secara terpisah.
+              </p>
+            </div>
+            {selectedStudent && (
+              <Link
+                href={`/wawancara/${selectedStudent.id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 font-bold bg-emerald-700 text-white rounded-xl hover:bg-emerald-800 transition text-xs"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                Input / Buka Lembar Wawancara Santri
+              </Link>
+            )}
           </div>
         )}
       </Modal>

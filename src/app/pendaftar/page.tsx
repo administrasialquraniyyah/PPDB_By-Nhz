@@ -83,6 +83,23 @@ export default function DataPendaftarPage() {
   const [jenjangFilter, setJenjangFilter] = useState('ALL');
   const [gelombangFilter, setGelombangFilter] = useState('ALL');
   const [genderFilter, setGenderFilter] = useState('ALL');
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user) {
+          setUserRole(d.user.role);
+          if (d.user.role === 'UNIT' && d.user.jenjangScope) {
+            setJenjangScope(d.user.jenjangScope);
+            setJenjangFilter(d.user.jenjangScope);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Modals state
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
@@ -449,14 +466,24 @@ export default function DataPendaftarPage() {
 
           <select
             value={jenjangFilter}
+            disabled={!!jenjangScope}
             onChange={(e) => setJenjangFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className={`px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 ${
+              jenjangScope ? 'opacity-70 cursor-not-allowed bg-slate-100 font-bold text-teal-800' : ''
+            }`}
+            title={jenjangScope ? `Terkunci pada Unit ${jenjangScope}` : undefined}
           >
-            <option value="ALL">Semua Jenjang</option>
-            <option value="TK">TK IT</option>
-            <option value="SD">SD IT</option>
-            <option value="SMP">SMP IT</option>
-            <option value="SMA">SMA IT</option>
+            {jenjangScope ? (
+              <option value={jenjangScope}>Unit {jenjangScope} (Terkunci)</option>
+            ) : (
+              <>
+                <option value="ALL">Semua Jenjang</option>
+                <option value="TK">TK IT</option>
+                <option value="SD">SD IT</option>
+                <option value="SMP">SMP IT</option>
+                <option value="SMA">SMA IT</option>
+              </>
+            )}
           </select>
 
           <select

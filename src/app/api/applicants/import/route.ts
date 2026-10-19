@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { parseExcelBuffer } from '@/lib/excelParser';
 import { triggerAutoBackup } from '@/lib/backupService';
+import { verifySession } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,9 @@ async function getFormFee(jenjang: string): Promise<number> {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const contentType = request.headers.get('content-type') || '';
 
     // Multipart Form Data (File Upload)

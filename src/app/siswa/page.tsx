@@ -25,6 +25,10 @@ import {
   MapPin,
   School,
   User,
+  ClipboardCheck,
+  Printer,
+  FileText,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -42,12 +46,46 @@ export default function SiswaPage() {
   const [statusRekening, setStatusRekening] = useState('');
   const [statusDaftarUlang, setStatusDaftarUlang] = useState('');
   const [hasRekomendasi, setHasRekomendasi] = useState('');
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user && d.user.role === 'UNIT' && d.user.jenjangScope) {
+          setJenjangScope(d.user.jenjangScope);
+          setJenjang(d.user.jenjangScope);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Modals
   const [detailStudent, setDetailStudent] = useState<any>(null);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [deleteConfirmStudent, setDeleteConfirmStudent] = useState<any>(null);
+  const [interviewModalStudent, setInterviewModalStudent] = useState<any>(null);
+  const [interviewSessionData, setInterviewSessionData] = useState<any>(null);
+  const [loadingInterview, setLoadingInterview] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const handleOpenInterviewModal = async (student: any) => {
+    setInterviewModalStudent(student);
+    setLoadingInterview(true);
+    setInterviewSessionData(null);
+    try {
+      const res = await fetch(`/api/interviews/${student.id}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const session = json.data.currentSession || (json.data.history && json.data.history[0]) || null;
+        setInterviewSessionData(session);
+      }
+    } catch (err) {
+      console.error('Error fetching interview session for student:', err);
+    } finally {
+      setLoadingInterview(false);
+    }
+  };
 
   const fetchStudents = async () => {
     if (!selectedYearId) return;
@@ -213,13 +251,20 @@ export default function SiswaPage() {
           <select
             value={jenjang}
             onChange={(e) => setJenjang(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            disabled={Boolean(jenjangScope)}
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-85 disabled:bg-teal-50/50 disabled:font-bold disabled:text-teal-900"
           >
-            <option value="">Semua Jenjang</option>
-            <option value="TK">TK IT</option>
-            <option value="SD">SD IT</option>
-            <option value="SMP">SMP IT</option>
-            <option value="SMA">SMA IT</option>
+            {jenjangScope ? (
+              <option value={jenjangScope}>Khusus Unit {jenjangScope}</option>
+            ) : (
+              <>
+                <option value="">Semua Jenjang</option>
+                <option value="TK">TK IT</option>
+                <option value="SD">SD IT</option>
+                <option value="SMP">SMP IT</option>
+                <option value="SMA">SMA IT</option>
+              </>
+            )}
           </select>
 
           <select
@@ -391,6 +436,13 @@ export default function SiswaPage() {
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleOpenInterviewModal(s)}
+                            className="p-1.5 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition"
+                            title="Rekam Jejak & Catatan Wawancara PPDB"
+                          >
+                            <ClipboardCheck className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => setDetailStudent(s)}
                             className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
                             title="Detail Lengkap"
@@ -558,6 +610,27 @@ export default function SiswaPage() {
               </div>
             </div>
 
+            {/* Wawancara PPDB Archive Section */}
+            <div className="p-3.5 bg-teal-50/70 rounded-xl border border-teal-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="space-y-0.5">
+                <div className="font-bold text-teal-950 text-xs flex items-center gap-1.5">
+                  <ClipboardCheck className="w-4 h-4 text-teal-700" />
+                  <span>Rekam Jejak & Hasil Tes Wawancara PPDB</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Catatan evaluasi penguji (kesiapan mondok, kesehatan, adab Al-Qur&apos;an) tersimpan permanen untuk arsip santri.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleOpenInterviewModal(detailStudent)}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition text-[11px] shrink-0 shadow-xs"
+              >
+                <span>Buka Catatan Wawancara</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setDetailStudent(null)}
@@ -567,6 +640,176 @@ export default function SiswaPage() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* MODAL HASIL TES WAWANCARA (ARSIP JANGKA PANJANG) */}
+      {interviewModalStudent && (
+        <Modal
+          isOpen={true}
+          onClose={() => setInterviewModalStudent(null)}
+          title={`Catatan Hasil Tes Wawancara: ${interviewModalStudent.namaLengkap}`}
+          description={`Santri Resmi T.P. ${selectedYearName} • Jenjang ${interviewModalStudent.jenjang}`}
+          maxWidth="2xl"
+        >
+          {loadingInterview ? (
+            <div className="py-12 text-center text-slate-500">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-teal-600 mb-2" />
+              <p className="text-xs">Mengambil rekam jejak hasil tes wawancara santri...</p>
+            </div>
+          ) : interviewSessionData ? (
+            <div className="space-y-3.5 text-xs">
+              {/* Header Info */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="font-bold text-slate-900 block text-sm">{interviewModalStudent.namaLengkap}</span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    NIS: {interviewModalStudent.noInduk || '-'} • Jenjang {interviewModalStudent.jenjang} ({interviewModalStudent.gelombang || 'Gelombang 1'})
+                  </span>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Asal: {interviewModalStudent.asalSekolah || '-'} • No HP: {interviewModalStudent.noHp || '-'}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                      interviewSessionData.hasilRekomendasi === 'DITERIMA'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : interviewSessionData.hasilRekomendasi === 'DITERIMA_BERSYARAT'
+                        ? 'bg-teal-100 text-teal-800 border border-teal-300'
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}
+                  >
+                    {interviewSessionData.hasilRekomendasi?.replace('_', ' ') || 'DITERIMA (LULUS)'}
+                  </span>
+                  <span className="text-[11px] text-slate-600 block mt-1 font-medium">
+                    Penguji: <b className="text-slate-900">{interviewSessionData.interviewerName || 'Ustadz Penguji PPDB'}</b>
+                  </span>
+                </div>
+              </div>
+
+              {/* 7 Rubrik Catatan Evaluasi Lengkap */}
+              <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+                <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    1. Kesiapan Mondok & Kemandirian
+                  </span>
+                  <span className="font-bold text-slate-800 block text-xs mt-1">
+                    {interviewSessionData.kesiapanMondok || 'Sangat Siap & Mandiri'}
+                  </span>
+                  {interviewSessionData.kesiapanNotes && (
+                    <p className="text-[11px] text-slate-600 mt-1 italic">&quot;{interviewSessionData.kesiapanNotes}&quot;</p>
+                  )}
+                </div>
+
+                <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    2. Motivasi Masuk Pesantren
+                  </span>
+                  <span className="font-bold text-slate-800 block text-xs mt-1">
+                    {interviewSessionData.motivasiType || 'Kemauan Santri Sendiri'}
+                  </span>
+                  {interviewSessionData.motivasiNotes && (
+                    <p className="text-[11px] text-slate-600 mt-1 italic">&quot;{interviewSessionData.motivasiNotes}&quot;</p>
+                  )}
+                </div>
+
+                <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    3. Catatan Kesehatan & Riwayat Penyakit
+                  </span>
+                  <span className="text-slate-800 block text-xs mt-1 font-medium">
+                    {interviewSessionData.catatanKesehatan || 'Tidak ada riwayat alergi / keluhan khusus (Sehat)'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    4. Komitmen & Dukungan Orang Tua
+                  </span>
+                  <span className="text-slate-800 block text-xs mt-1 font-medium">
+                    {interviewSessionData.komitmenOrtu || 'Orang tua berkomitmen penuh mendukung pendidikan santri di pesantren'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    5. Adab & Bacaan Al-Qur&apos;an
+                  </span>
+                  <span className="text-slate-800 block text-xs mt-1 font-medium">
+                    {interviewSessionData.adabDanQuran || 'Adab sopan, bacaan Al-Qur’an lancar sesuai kaidah tajwid dasar'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                    6. Observasi / Catatan Khusus Penguji
+                  </span>
+                  <span className="text-slate-800 block text-xs mt-1 font-semibold">
+                    {interviewSessionData.catatanPenguji || 'Santri berpotensi baik dan layak diterima di Pondok Pesantren Al-Qur’aniyyah'}
+                  </span>
+                </div>
+
+                {interviewSessionData.catatanTindakLanjut && (
+                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                      7. Catatan Syarat / Tindak Lanjut
+                    </span>
+                    <span className="text-slate-800 block text-xs mt-1 font-semibold">
+                      {interviewSessionData.catatanTindakLanjut}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  title="Cetak Berkas Catatan Wawancara untuk Arsip Fisik Map Santri"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Cetak Dokumen Hasil Tes</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInterviewModalStudent(null)}
+                    className="px-4 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition font-medium"
+                  >
+                    Tutup
+                  </button>
+                  <Link
+                    href={`/wawancara/${interviewModalStudent.id}`}
+                    className="px-4 py-1.5 font-bold bg-teal-700 text-white rounded-xl hover:bg-teal-800 transition flex items-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Buka Lembar Kerja Penuh
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-500 space-y-3">
+              <ClipboardCheck className="w-8 h-8 mx-auto text-amber-500" />
+              <div>
+                <p className="font-semibold text-slate-800">Catatan Wawancara Belum Diinput</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Santri ini terdaftar aktif, namun lembar hasil tes digital PPDB belum tersimpan di sistem.
+                </p>
+              </div>
+              <Link
+                href={`/wawancara/${interviewModalStudent.id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 font-bold bg-teal-700 text-white rounded-xl hover:bg-teal-800 transition text-xs"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Input / Buka Lembar Wawancara Santri
+              </Link>
+            </div>
+          )}
         </Modal>
       )}
 
