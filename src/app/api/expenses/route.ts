@@ -20,15 +20,40 @@ export async function GET(request: Request) {
       include: { academicYear: true },
     });
 
-    // Also calculate income from Form Payments and Re-registrations for this academic year
+    // Calculate income from Form Payments across ALL applicants & students
+    // 1. Paid applicants in this academic year
+    const applicantWhere: any = {
+      ...(academicYearId ? { academicYearId } : {}),
+      statusBayarFormulir: { in: ['LUNAS_TRANSFER', 'LUNAS_CASH', 'Lunas'] },
+    };
+
+    const paidApplicants = await prisma.applicant.findMany({
+      where: applicantWhere,
+      select: {
+        id: true,
+        studentId: true,
+        nominalFormulir: true,
+        statusBayarFormulir: true,
+        metodePembayaran: true,
+      },
+    });
+
+    const promotedStudentIds = new Set(
+      paidApplicants.map((a) => a.studentId).filter(Boolean)
+    );
+
     const studentWhere: any = {
       status: 'ACTIVE',
       ...(academicYearId ? { academicYearId } : {}),
     };
 
-    const formPayments = await prisma.formPayment.findMany({
+    // 2. Standalone students who have formPayment not tied to applicant
+    const standaloneFormPayments = await prisma.formPayment.findMany({
       where: {
-        student: studentWhere,
+        student: {
+          ...studentWhere,
+          id: { notIn: Array.from(promotedStudentIds) as string[] },
+        },
         status: 'Lunas',
       },
       select: { nominalAktual: true, diskon: true, metodePembayaran: true },
@@ -52,16 +77,28 @@ export async function GET(request: Request) {
 
     let totalIncomeFormCash = 0;
     let totalIncomeFormTransfer = 0;
-    const totalIncomeForm = formPayments.reduce((acc, f) => {
+    let totalIncomeForm = 0;
+
+    paidApplicants.forEach((a) => {
+      const amount = a.nominalFormulir || 300000;
+      totalIncomeForm += amount;
+      if (a.metodePembayaran?.toLowerCase() === 'cash' || a.statusBayarFormulir === 'LUNAS_CASH') {
+        totalIncomeFormCash += amount;
+      } else {
+        totalIncomeFormTransfer += amount;
+      }
+    });
+
+    standaloneFormPayments.forEach((f) => {
+      totalIncomeForm += f.nominalAktual;
       if (f.metodePembayaran?.toLowerCase() === 'cash') {
         totalIncomeFormCash += f.nominalAktual;
       } else {
         totalIncomeFormTransfer += f.nominalAktual;
       }
-      return acc + f.nominalAktual;
-    }, 0);
+    });
 
-    const totalDiskonForm = formPayments.reduce((acc, f) => acc + f.diskon, 0);
+    const totalDiskonForm = standaloneFormPayments.reduce((acc, f) => acc + f.diskon, 0);
     const totalIncomeDU = reRegistrations.reduce((acc, r) => acc + r.amount, 0);
     const totalPemasukan = totalIncomeForm + totalIncomeDU;
 
@@ -75,7 +112,6 @@ export async function GET(request: Request) {
       if (e.category === 'Pengeluaran Yayasan') {
         totalExpenseYayasan += e.amount;
       } else if (e.category === 'Apresiasi Rekomendasi') {
-        // logged via expense table if any
         totalExpenseLainnya += e.amount;
       } else {
         totalExpenseOperasional += e.amount;

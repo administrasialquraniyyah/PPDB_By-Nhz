@@ -27,15 +27,33 @@ export default function FormulirPage() {
     totalDiskon: 0,
     countLunas: 0,
     countBelum: 0,
+    totalCash: 0,
+    countCash: 0,
+    totalTransfer: 0,
+    countTransfer: 0,
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [jenjangFilter, setJenjangFilter] = useState('');
   const [metodeFilter, setMetodeFilter] = useState('');
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
 
   const [editingItem, setEditingItem] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Check user role scope for Unit SD
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user?.role === 'UNIT' && d.user?.jenjangScope) {
+          setJenjangScope(d.user.jenjangScope);
+          setJenjangFilter(d.user.jenjangScope);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchFormulir = async () => {
     if (!selectedYearId) return;
@@ -69,7 +87,9 @@ export default function FormulirPage() {
     const q = search.toLowerCase();
     return (
       p.student?.namaLengkap?.toLowerCase().includes(q) ||
-      p.student?.jenjang?.toLowerCase().includes(q)
+      p.student?.noPendaftaran?.toLowerCase().includes(q) ||
+      p.student?.jenjang?.toLowerCase().includes(q) ||
+      p.keterangan?.toLowerCase().includes(q)
     );
   });
 
@@ -79,10 +99,23 @@ export default function FormulirPage() {
     setActionLoading(true);
 
     try {
+      const payload = {
+        id: editingItem.id,
+        applicantId: editingItem.applicantId,
+        studentId: editingItem.studentId,
+        nominalDefault: editingItem.nominalDefault,
+        nominalAktual: editingItem.nominalAktual,
+        diskon: editingItem.diskon,
+        status: editingItem.status,
+        metodePembayaran: editingItem.metodePembayaran,
+        keterangan: editingItem.keterangan,
+        tanggal: editingItem.tanggal,
+      };
+
       const res = await fetch('/api/form-payments', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingItem),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (json.success) {
@@ -99,10 +132,12 @@ export default function FormulirPage() {
   const handleExportExcel = () => {
     const headers = [
       'No',
-      'Nama Siswa',
+      'Status Registrasi',
+      'No. Pendaftaran',
+      'Nama Santri / Pendaftar',
       'Jenjang',
       'Gelombang',
-      'Nominal Default',
+      'Tarif Default',
       'Nominal Aktual',
       'Diskon/Keringanan',
       'Status Pembayaran',
@@ -112,6 +147,8 @@ export default function FormulirPage() {
 
     const rows = filteredPayments.map((p, idx) => [
       idx + 1,
+      p.isPromoted ? 'Siswa Resmi' : 'Data Pendaftar',
+      p.student?.noPendaftaran || '-',
       p.student?.namaLengkap || '',
       p.student?.jenjang || '',
       p.student?.gelombang || '',
@@ -143,7 +180,7 @@ export default function FormulirPage() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Data pembelian formulir otomatis terdaftar dari hasil import PPDB ({selectedYearName}). Nominal aktual dapat disesuaikan jika ada diskon.
+            Data pembelian formulir terintegrasi dari seluruh Data Pendaftar dan Siswa Resmi ({selectedYearName}).
           </p>
         </div>
 
@@ -165,7 +202,7 @@ export default function FormulirPage() {
             {formatCurrency(summary.totalAktual)}
           </div>
           <span className="text-[10px] text-emerald-600 font-medium">
-            {summary.countLunas} siswa lunas
+            {summary.countLunas} santri lunas
           </span>
         </div>
 
@@ -175,7 +212,7 @@ export default function FormulirPage() {
             {formatCurrency(summary.totalTransfer || 0)}
           </div>
           <span className="text-[10px] text-blue-600 font-medium">
-            {summary.countTransfer || 0} siswa via transfer
+            {summary.countTransfer || 0} via transfer
           </span>
         </div>
 
@@ -185,13 +222,13 @@ export default function FormulirPage() {
             {formatCurrency(summary.totalCash || 0)}
           </div>
           <span className="text-[10px] text-emerald-700 font-medium">
-            {summary.countCash || 0} siswa bayar cash
+            {summary.countCash || 0} bayar cash
           </span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
           <span className="text-[11px] text-slate-400 font-semibold uppercase">Belum Lunas / Kurang</span>
-          <div className="text-lg font-bold text-rose-600 mt-1">{summary.countBelum} Siswa</div>
+          <div className="text-lg font-bold text-rose-600 mt-1">{summary.countBelum} Santri</div>
           <span className="text-[10px] text-slate-400">
             Total diskon: {formatCurrency(summary.totalDiskon)}
           </span>
@@ -204,7 +241,7 @@ export default function FormulirPage() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Cari nama siswa..."
+            placeholder="Cari nama santri / pendaftar / no. pendaftaran..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
@@ -214,14 +251,26 @@ export default function FormulirPage() {
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <select
             value={jenjangFilter}
+            disabled={!!jenjangScope}
             onChange={(e) => setJenjangFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium"
+            className={`px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium ${
+              jenjangScope
+                ? 'opacity-70 cursor-not-allowed bg-slate-100 text-teal-800 font-bold'
+                : 'text-slate-700'
+            }`}
+            title={jenjangScope ? `Terkunci pada Unit ${jenjangScope}` : undefined}
           >
-            <option value="">Semua Jenjang</option>
-            <option value="TK">TK IT</option>
-            <option value="SD">SD IT</option>
-            <option value="SMP">SMP IT</option>
-            <option value="SMA">SMA IT</option>
+            {jenjangScope ? (
+              <option value={jenjangScope}>Unit {jenjangScope} (Terkunci)</option>
+            ) : (
+              <>
+                <option value="">Semua Jenjang</option>
+                <option value="TK">TK IT</option>
+                <option value="SD">SD IT</option>
+                <option value="SMP">SMP IT</option>
+                <option value="SMA">SMA IT</option>
+              </>
+            )}
           </select>
 
           <select
@@ -265,7 +314,7 @@ export default function FormulirPage() {
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200/80">
                 <tr>
                   <th className="py-3 px-3 font-semibold">No</th>
-                  <th className="py-3 px-3 font-semibold">Nama Siswa</th>
+                  <th className="py-3 px-3 font-semibold">Nama Santri / Pendaftar</th>
                   <th className="py-3 px-3 font-semibold">Jenjang</th>
                   <th className="py-3 px-3 font-semibold">Tarif Default</th>
                   <th className="py-3 px-3 font-semibold">Diskon</th>
@@ -280,9 +329,20 @@ export default function FormulirPage() {
                   <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                     <td className="py-2.5 px-3">
-                      <div className="font-bold text-slate-900">{p.student?.namaLengkap}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900">{p.student?.namaLengkap}</span>
+                        {p.isPromoted ? (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            Siswa Resmi ✓
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-300">
+                            Data Pendaftar
+                          </span>
+                        )}
+                      </div>
                       {p.keterangan && (
-                        <div className="text-[10px] text-slate-400 italic">{p.keterangan}</div>
+                        <div className="text-[10px] text-slate-400 italic mt-0.5">{p.keterangan}</div>
                       )}
                     </td>
                     <td className="py-2.5 px-3">
@@ -311,6 +371,7 @@ export default function FormulirPage() {
                       >
                         {p.status}
                       </span>
+                    </td>
                     <td className="py-2.5 px-3">
                       {p.metodePembayaran?.toLowerCase() === 'cash' ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -324,6 +385,7 @@ export default function FormulirPage() {
                         <span className="text-slate-400 font-mono text-[11px]">-</span>
                       )}
                     </td>
+                    <td className="py-2.5 px-3 text-right">
                       <button
                         onClick={() => setEditingItem({ ...p })}
                         className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-lg font-semibold transition"
@@ -345,7 +407,9 @@ export default function FormulirPage() {
           isOpen={true}
           onClose={() => setEditingItem(null)}
           title={`Edit Formulir: ${editingItem.student?.namaLengkap}`}
-          description={`Jenjang: ${editingItem.student?.jenjang}`}
+          description={`Jenjang: ${editingItem.student?.jenjang} • ${
+            editingItem.isPromoted ? 'Siswa Resmi' : 'Data Pendaftar'
+          }`}
           maxWidth="md"
         >
           <form onSubmit={handleSaveEdit} className="space-y-3 text-xs">
@@ -442,7 +506,7 @@ export default function FormulirPage() {
                 value={editingItem.keterangan || ''}
                 onChange={(e) => setEditingItem({ ...editingItem, keterangan: e.target.value })}
                 rows={2}
-                placeholder="Contoh: Diskon saudara kandung, anak guru, dll."
+                placeholder="Contoh: Lunas transfer saat registrasi, diskon khusus, dll."
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
               />
             </div>

@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       },
     });
 
-    // 3. Stats by Jenjang
+    // 3. Stats by Jenjang (from Students)
     const jenjangCounts = {
       TK: 0,
       SD: 0,
@@ -104,11 +104,6 @@ export async function GET(request: Request) {
       batal: 0,
       totalNominalDU: 0,
     };
-
-    // 9. Financial aggregates
-    let totalFormTarget = 0;
-    let totalFormActual = 0;
-    let totalFormDiskon = 0;
 
     students.forEach((s) => {
       // Jenjang
@@ -165,9 +160,47 @@ export async function GET(request: Request) {
       } else {
         daftarUlangStats.belum++;
       }
+    });
 
-      // Formulir
-      if (s.formPayment) {
+    // 9. Financial aggregates from form payments across ALL Applicants + Standalone Students
+    const applicantWhere: any = {
+      academicYearId: targetYearId,
+      ...(user?.role === 'UNIT' && user?.jenjangScope ? { jenjang: user.jenjangScope } : {}),
+    };
+
+    const allApplicantsInYear = await prisma.applicant.findMany({
+      where: applicantWhere,
+      select: {
+        id: true,
+        studentId: true,
+        nominalFormulir: true,
+        statusBayarFormulir: true,
+        jenjang: true,
+      },
+    });
+
+    const promotedStudentIds = new Set(
+      allApplicantsInYear.map((a) => a.studentId).filter(Boolean)
+    );
+
+    let totalFormTarget = 0;
+    let totalFormActual = 0;
+    let totalFormDiskon = 0;
+
+    allApplicantsInYear.forEach((a) => {
+      const fee = a.nominalFormulir || 300000;
+      totalFormTarget += fee;
+      if (
+        a.statusBayarFormulir === 'LUNAS_TRANSFER' ||
+        a.statusBayarFormulir === 'LUNAS_CASH' ||
+        a.statusBayarFormulir === 'Lunas'
+      ) {
+        totalFormActual += fee;
+      }
+    });
+
+    students.forEach((s) => {
+      if (!promotedStudentIds.has(s.id) && s.formPayment) {
         totalFormTarget += s.formPayment.nominalDefault;
         totalFormDiskon += s.formPayment.diskon;
         if (s.formPayment.status === 'Lunas') {
@@ -212,7 +245,8 @@ export async function GET(request: Request) {
       data: {
         academicYear: currentYear,
         pendaftar: {
-          total: students.length,
+          total: students.length, // Siswa resmi aktif
+          totalApplicants: allApplicantsInYear.length, // Total calon pendaftar di modul PPDB
           draftCount,
           byJenjang: jenjangCounts,
           byGender: genderCounts,
