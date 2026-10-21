@@ -289,15 +289,6 @@ Terima kasih.`;
       if (json.success) {
         setValidationData(json);
       }
-
-      // Load saved default ID kartu setting if available
-      try {
-        const sRes = await fetch('/api/settings');
-        const sJson = await sRes.json();
-        if (sJson.data?.default_id_kartu) {
-          setStartCardId(sJson.data.default_id_kartu);
-        }
-      } catch (e) {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -311,10 +302,14 @@ Terima kasih.`;
     params.append('statusRekening', 'Belum dibuat');
     params.append('mode', 'download');
     if (exportJenjang) params.append('jenjang', exportJenjang);
-    if (startCardId) params.append('startCardId', startCardId.trim());
 
     window.open(`/api/bank-accounts/export?${params.toString()}`, '_blank');
     setShowExportModal(false);
+
+    // Refresh data santri agar nomor ID kartu yang baru dibuat langsung tampil di tabel
+    setTimeout(() => {
+      fetchAccounts();
+    }, 1500);
   };
 
   const eligibleAccounts = filteredAccounts.filter(
@@ -807,21 +802,36 @@ Terima kasih.`;
               </div>
             ) : null}
 
-            {/* Input Acuan Nomor ID Kartu Awal */}
-            <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-1">
-              <label className="block font-bold text-slate-800 text-xs">
-                💳 Acuan Nomor ID Kartu Awal:
-              </label>
-              <input
-                type="text"
-                value={startCardId}
-                onChange={(e) => setStartCardId(e.target.value)}
-                placeholder="Contoh: 1480001301"
-                className="w-full px-3 py-2 border border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-sm text-purple-900 bg-white"
-              />
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Nomor kartu awal ini akan diisikan ke kolom <strong>ID kartu</strong> dan diurutkan otomatis (+1 per siswa berikutnya) pada template CBS.
+            {/* Penomoran ID Kartu CBS Otomatis (Master Setting) */}
+            <div className="p-3.5 bg-purple-50/80 border border-purple-200/80 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-purple-600" />
+                  Penomoran ID Kartu CBS (Otomatis Master)
+                </span>
+                <span className="font-mono font-bold text-xs text-purple-900 bg-purple-100/90 px-2.5 py-0.5 rounded-lg border border-purple-200 shadow-sm">
+                  {validationData?.summary?.rangePreview || validationData?.summary?.nextCardId || 'Otomatis'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Nomor kartu santri ditentukan dari <strong>Pengaturan Master</strong> dan akan otomatis bertambah (+1 per santri). Anda tidak perlu menentukan atau mengetik ulang nomor setiap kali ekspor.
               </p>
+              <div className="pt-1 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500">
+                  Nomor awal urutan:{' '}
+                  <strong className="text-purple-900 font-mono">
+                    {validationData?.summary?.nextCardId || '1480026000'}
+                  </strong>
+                </span>
+                <a
+                  href="/pengaturan"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-purple-700 hover:text-purple-900 font-semibold underline underline-offset-2 flex items-center gap-1"
+                >
+                  Ubah di Pengaturan Master →
+                </a>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

@@ -30,6 +30,7 @@ export default function PengaturanPage() {
     fee_sma: '300000',
     apresiasi_guru: '500000',
     apresiasi_wali: '250000',
+    default_id_kartu: '1480026000',
   });
 
   const [loading, setLoading] = useState(true);
@@ -477,17 +478,17 @@ export default function PengaturanPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-medium text-slate-600 mb-1">
-                Acuan Nomor ID Kartu Awal (Default)
+                Acuan Nomor ID Kartu Awal / Urutan Berikutnya
               </label>
               <input
                 type="text"
-                value={settingsMap.default_id_kartu || '1480001301'}
+                value={settingsMap.default_id_kartu || '1480026000'}
                 onChange={(e) => setSettingsMap({ ...settingsMap, default_id_kartu: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono font-bold text-purple-900"
-                placeholder="Contoh: 1480001301"
+                placeholder="Contoh: 1480026000"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Nomor acuan default untuk kolom ID Kartu saat export template CBS.
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                Nomor ini hanya ditentukan di awal pada Pengaturan Master dan akan otomatis bertambah (+1 per santri) setiap kali diekspor, sehingga tidak perlu ditentukan ulang saat ekspor.
               </p>
             </div>
           </div>
@@ -499,7 +500,7 @@ export default function PengaturanPage() {
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{saving ? 'Menyimpan...' : 'Simpan Perubahan Tarif'}</span>
+              <span>{saving ? 'Menyimpan...' : 'Simpan Pengaturan Master'}</span>
             </button>
           </div>
         </form>

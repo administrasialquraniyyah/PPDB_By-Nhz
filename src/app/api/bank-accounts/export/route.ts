@@ -14,6 +14,24 @@ export async function GET(request: Request) {
     const mode = searchParams.get('mode') || 'download'; // 'validate' | 'download'
     const startCardIdParam = searchParams.get('startCardId')?.trim();
 
+    // 1. Ambil nomor acuan default dari Pengaturan Master
+    const settingObj = await prisma.appSetting.findUnique({
+      where: { key: 'default_id_kartu' },
+    });
+    const masterStartCardId = (settingObj?.value || '1480026000').trim();
+    const effectiveStartCardId = startCardIdParam || masterStartCardId;
+
+    let cardCounter: bigint | null = null;
+    let cardPrefix = '';
+    let cardDigits = 0;
+
+    const match = effectiveStartCardId.match(/^(\D*)(\d+)$/);
+    if (match) {
+      cardPrefix = match[1] || '';
+      cardDigits = match[2].length;
+      cardCounter = BigInt(match[2]);
+    }
+
     const where: any = {
       status: 'ACTIVE',
     };
@@ -53,6 +71,7 @@ export async function GET(request: Request) {
         id: s.id,
         nama: s.namaLengkap,
         jenjang: s.jenjang,
+        idKartu: s.idKartu,
         isComplete: missing.length === 0,
         missingFields: missing,
       };
@@ -60,6 +79,24 @@ export async function GET(request: Request) {
 
     const completeCount = analyzed.filter((a) => a.isComplete).length;
     const incompleteCount = analyzed.length - completeCount;
+    const studentsNeedingCard = students.filter((s) => !s.idKartu || !s.idKartu.trim());
+
+    let rangePreview = 'Semua siswa sudah memiliki ID Kartu';
+    let nextUpcomingId = masterStartCardId;
+
+    if (studentsNeedingCard.length > 0 && cardCounter !== null) {
+      const startNumStr = cardCounter.toString().padStart(cardDigits, '0');
+      const startRangeId = `${cardPrefix}${startNumStr}`;
+      const endCounter = cardCounter + BigInt(studentsNeedingCard.length - 1);
+      const endNumStr = endCounter.toString().padStart(cardDigits, '0');
+      const endRangeId = `${cardPrefix}${endNumStr}`;
+
+      rangePreview =
+        studentsNeedingCard.length === 1 ? startRangeId : `${startRangeId} s/d ${endRangeId}`;
+
+      const afterCounter = cardCounter + BigInt(studentsNeedingCard.length);
+      nextUpcomingId = `${cardPrefix}${afterCounter.toString().padStart(cardDigits, '0')}`;
+    }
 
     if (mode === 'validate') {
       return NextResponse.json({
@@ -68,6 +105,10 @@ export async function GET(request: Request) {
           total: students.length,
           completeCount,
           incompleteCount,
+          nextCardId: masterStartCardId,
+          studentsNeedingCard: studentsNeedingCard.length,
+          rangePreview,
+          nextUpcomingId,
         },
         items: analyzed,
       });
@@ -97,40 +138,29 @@ export async function GET(request: Request) {
       'Nama Ibu',
     ];
 
-    let cardCounter: bigint | null = null;
-    let cardPrefix = '';
-    let cardDigits = 0;
-
-    if (startCardIdParam) {
-      const match = startCardIdParam.match(/^(\D*)(\d+)$/);
-      if (match) {
-        cardPrefix = match[1] || '';
-        cardDigits = match[2].length;
-        cardCounter = BigInt(match[2]);
-      }
-    }
-
     const rows: any[][] = [];
+    let newlyAssignedCount = 0;
 
     for (const s of students) {
       const formattedDob = normalizeDobString(s.tanggalLahir);
 
-      let cardId = s.idKartu || '';
-      if (cardCounter !== null) {
+      let cardId = s.idKartu ? s.idKartu.trim() : '';
+
+      // Jika santri belum punya idKartu, berikan nomor berikutnya secara otomatis (+1)
+      if (!cardId && cardCounter !== null) {
         const numStr = cardCounter.toString().padStart(cardDigits, '0');
         cardId = `${cardPrefix}${numStr}`;
         cardCounter = cardCounter + BigInt(1);
+        newlyAssignedCount++;
 
-        // Persist to database so subsequent exports keep this ID
-        if (s.idKartu !== cardId) {
-          try {
-            await prisma.student.update({
-              where: { id: s.id },
-              data: { idKartu: cardId },
-            });
-          } catch (e) {
-            console.error('Failed to update student idKartu:', e);
-          }
+        // Simpan langsung ke database santri agar nomor tersebut permanen untuk santri ini
+        try {
+          await prisma.student.update({
+            where: { id: s.id },
+            data: { idKartu: cardId },
+          });
+        } catch (e) {
+          console.error('Failed to update student idKartu:', e);
         }
       }
 
@@ -171,6 +201,20 @@ export async function GET(request: Request) {
         'YA',
         s.namaIbu || '',
       ]);
+    }
+
+    // Update nomor berikutnya ke Pengaturan Master (app_settings) jika ada nomor kartu baru yang di-generate
+    if (newlyAssignedCount > 0 && cardCounter !== null) {
+      const nextCardVal = `${cardPrefix}${cardCounter.toString().padStart(cardDigits, '0')}`;
+      try {
+        await prisma.appSetting.upsert({
+          where: { key: 'default_id_kartu' },
+          update: { value: nextCardVal },
+          create: { key: 'default_id_kartu', value: nextCardVal },
+        });
+      } catch (e) {
+        console.error('Failed to auto-increment master default_id_kartu:', e);
+      }
     }
 
     const worksheetData = [headers, ...rows];

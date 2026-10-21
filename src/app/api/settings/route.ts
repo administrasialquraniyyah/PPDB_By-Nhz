@@ -13,6 +13,7 @@ export async function GET() {
       fee_sma: '300000',
       apresiasi_guru: '500000',
       apresiasi_wali: '250000',
+      default_id_kartu: '1480026000',
     };
 
     settings.forEach((s) => {
