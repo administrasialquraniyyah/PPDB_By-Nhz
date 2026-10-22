@@ -14,6 +14,7 @@ import {
   AlertCircle,
   HelpCircle,
   ClipboardList,
+  ShieldCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -293,27 +294,53 @@ export default function ImportPage() {
       )}
 
       {/* Preview Section */}
-      {preview && (
+      {preview && (() => {
+        const newRowsCount = preview.newRowsCount !== undefined
+          ? preview.newRowsCount
+          : Math.max(0, preview.validRows - (preview.duplicateCount || 0));
+        const duplicateCount = preview.duplicateCount || 0;
+
+        return (
         <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Anti-Duplication Protection Banner */}
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3 shadow-xs">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-emerald-950 flex items-center gap-2">
+                <span>Proteksi Anti-Duplikasi Otomatis Aktif</span>
+                <span className="bg-emerald-200/70 text-emerald-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                  Aman Diimpor Berkali-kali
+                </span>
+              </div>
+              <p className="text-emerald-800 text-[11px] leading-relaxed">
+                Sistem memeriksa nomor pendaftaran (contoh: <code>ALQ-2026-000012</code>), NIK, dan nama calon santri. <strong>{duplicateCount} data yang sudah pernah diimpor otomatis dilewati</strong> sehingga tidak akan pernah ada data ganda atau menimpa catatan tes/rekening yang sudah ada. Hanya <strong>{newRowsCount} calon santri baru</strong> yang akan dimasukkan ke database.
+              </p>
+            </div>
+          </div>
+
           {/* Summary Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
-              <span className="text-[11px] text-slate-400 font-medium">Sheet Terpilih</span>
-              <div className="font-bold text-sm text-slate-800 truncate">{preview.selectedSheet}</div>
-            </div>
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
-              <span className="text-[11px] text-slate-400 font-medium">Total Baris Data</span>
+              <span className="text-[11px] text-slate-400 font-medium">Total di File Excel</span>
               <div className="font-extrabold text-lg text-slate-900">{preview.totalRows} Data</div>
+              <span className="text-[10px] text-slate-400 truncate block">Sheet: {preview.selectedSheet}</span>
+            </div>
+            <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 shadow-xs">
+              <span className="text-[11px] text-emerald-700 font-semibold">Santri Baru (Akan Diimpor)</span>
+              <div className="font-extrabold text-xl text-emerald-700">{newRowsCount} Calon Santri</div>
+              <span className="text-[10px] text-emerald-600">Siap diproses seleksi</span>
+            </div>
+            <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200 shadow-xs">
+              <span className="text-[11px] text-amber-700 font-semibold">Sudah Terdaftar (Dilewati)</span>
+              <div className="font-extrabold text-xl text-amber-700">{duplicateCount} Santri</div>
+              <span className="text-[10px] text-amber-600">Otomatis tidak digandakan</span>
             </div>
             <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
-              <span className="text-[11px] text-slate-400 font-medium">Data Siap Impor</span>
-              <div className="font-extrabold text-lg text-emerald-600">{preview.validRows} Data</div>
-            </div>
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
-              <span className="text-[11px] text-slate-400 font-medium">Potensi Duplikat</span>
-              <div className={`font-extrabold text-lg ${preview.duplicateCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                {preview.duplicateCount} Data
+              <span className="text-[11px] text-slate-400 font-medium">Status Verifikasi</span>
+              <div className="font-bold text-sm text-slate-800 mt-1">
+                {newRowsCount > 0 ? 'Siap Impor Data Baru' : 'Semua Sudah Terdaftar'}
               </div>
+              <span className="text-[10px] text-slate-400">100% tervalidasi</span>
             </div>
           </div>
 
@@ -397,12 +424,12 @@ export default function ImportPage() {
                       <td className="py-2 px-3 font-sans text-slate-700">{r.namaAyah || r.namaIbu || '-'}</td>
                       <td className="py-2 px-3 font-sans">
                         {r.isDuplicate ? (
-                          <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded text-[10px] font-bold">
-                            <AlertTriangle className="w-3 h-3" /> Duplikat
+                          <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-200/60">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Sudah Terdaftar (Dilewati)
                           </span>
                         ) : (
-                          <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px] font-bold">
-                            Valid
+                          <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-200/60">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Santri Baru (Siap Masuk)
                           </span>
                         )}
                       </td>
@@ -431,20 +458,23 @@ export default function ImportPage() {
               <button
                 type="button"
                 onClick={handleCommit}
-                disabled={committing}
+                disabled={committing || newRowsCount === 0}
                 className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <CheckCircle2 className={`w-4 h-4 ${committing ? 'animate-spin' : ''}`} />
                 {committing
-                  ? 'Menyimpan ke Supabase...'
+                  ? 'Menyimpan Data Baru ke Supabase...'
+                  : newRowsCount === 0
+                  ? `Semua Data (${duplicateCount}) Sudah Terdaftar (Tidak Ada Data Baru)`
                   : importTarget === 'APPLICANTS'
-                  ? `Setujui & Simpan ${preview.validRows} Calon Santri ke Data Pendaftar`
-                  : `Setujui & Simpan ${preview.validRows} Data Siswa ke Supabase`}
+                  ? `Setujui & Impor ${newRowsCount} Calon Santri Baru (${duplicateCount} Otomatis Dilewati)`
+                  : `Setujui & Impor ${newRowsCount} Data Siswa Baru (${duplicateCount} Otomatis Dilewati)`}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

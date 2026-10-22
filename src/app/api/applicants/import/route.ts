@@ -47,25 +47,53 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check existing applicants for deduplication
-      const existingApplicants = await prisma.applicant.findMany({
-        where: academicYearId ? { academicYearId } : {},
-        select: { id: true, noPendaftaran: true, nik: true, namaLengkap: true, jenjang: true },
-      });
+      // Check existing applicants AND students for complete anti-duplication
+      const [existingApplicants, existingStudents] = await Promise.all([
+        prisma.applicant.findMany({
+          where: academicYearId ? { academicYearId } : {},
+          select: { id: true, noPendaftaran: true, nik: true, nisn: true, namaLengkap: true, jenjang: true },
+        }),
+        prisma.student.findMany({
+          where: academicYearId ? { academicYearId } : {},
+          select: { id: true, noPendaftaran: true, nik: true, nisn: true, namaLengkap: true, jenjang: true },
+        }),
+      ]);
+
+      const allExisting = [...existingApplicants, ...existingStudents];
 
       const processedRows = parsed.rows.map((r) => {
-        const isDuplicate = existingApplicants.some((ex) => {
-          if (r.noPendaftaran && ex.noPendaftaran && r.noPendaftaran === ex.noPendaftaran) return true;
-          if (r.nik && ex.nik && r.nik === ex.nik) return true;
-          return (
-            r.namaLengkap.toLowerCase().trim() === ex.namaLengkap.toLowerCase().trim() &&
-            r.jenjang.toUpperCase() === ex.jenjang.toUpperCase()
-          );
+        const rNoPend = (r.noPendaftaran || '').toLowerCase().trim();
+        const rNik = (r.nik || '').toString().trim();
+        const rNisn = (r.nisn || '').toString().trim();
+        const rName = (r.namaLengkap || '').toLowerCase().trim();
+        const rJenjang = (r.jenjang || 'SMP').toUpperCase().trim();
+
+        const isDuplicate = allExisting.some((ex) => {
+          // 1. Cek No. Registrasi / Pendaftaran (e.g. ALQ-2026-000012)
+          const exNoPend = (ex.noPendaftaran || '').toLowerCase().trim();
+          if (rNoPend && exNoPend && rNoPend === exNoPend) return true;
+
+          // 2. Cek NIK
+          const exNik = (ex.nik || '').toString().trim();
+          if (rNik && exNik && rNik === exNik) return true;
+
+          // 3. Cek NISN
+          const exNisn = (ex.nisn || '').toString().trim();
+          if (rNisn && exNisn && rNisn === exNisn) return true;
+
+          // 4. Cek Nama Lengkap + Jenjang
+          const exName = (ex.namaLengkap || '').toLowerCase().trim();
+          const exJenjang = (ex.jenjang || 'SMP').toUpperCase().trim();
+          if (rName && exName && rName === exName && rJenjang === exJenjang) return true;
+
+          return false;
         });
+
         return { ...r, isDuplicate };
       });
 
       const duplicateCount = processedRows.filter((r) => r.isDuplicate).length;
+      const newRowsCount = processedRows.filter((r) => !r.isDuplicate && !r.hasError).length;
 
       // If preview mode, return preview statistics
       if (mode === 'preview') {
@@ -76,8 +104,9 @@ export async function POST(request: NextRequest) {
             selectedSheet: parsed.selectedSheet,
             totalRows: parsed.totalRows,
             validRows: parsed.validRows,
-            invalidRows: parsed.invalidRows,
+            newRowsCount,
             duplicateCount,
+            invalidRows: parsed.invalidRows,
             rows: processedRows,
           },
         });
@@ -122,12 +151,19 @@ async function commitApplicants({
     return NextResponse.json({ success: false, error: 'Tahun ajaran wajib dipilih' }, { status: 400 });
   }
 
-  // Pre-load existing applicants for anti-duplication
-  const existingApplicants = await prisma.applicant.findMany({
-    where: { academicYearId },
-    select: { id: true, noPendaftaran: true, nik: true, namaLengkap: true, jenjang: true },
-  });
+  // Pre-load existing applicants AND students for anti-duplication
+  const [existingApplicants, existingStudents] = await Promise.all([
+    prisma.applicant.findMany({
+      where: { academicYearId },
+      select: { id: true, noPendaftaran: true, nik: true, nisn: true, namaLengkap: true, jenjang: true },
+    }),
+    prisma.student.findMany({
+      where: { academicYearId },
+      select: { id: true, noPendaftaran: true, nik: true, nisn: true, namaLengkap: true, jenjang: true },
+    }),
+  ]);
 
+  const allExisting: any[] = [...existingApplicants, ...existingStudents];
   const createdList: any[] = [];
   const skippedList: any[] = [];
 
@@ -143,23 +179,37 @@ async function commitApplicants({
     const cleanName = (r.namaLengkap || '').trim();
     if (!cleanName) continue;
 
+    const rNoPend = (r.noPendaftaran || '').toLowerCase().trim();
+    const rNik = (r.nik || '').toString().trim();
+    const rNisn = (r.nisn || '').toString().trim();
+    const rName = cleanName.toLowerCase();
+    const rJenjang = jenjang;
+
     // Strict deduplication check
-    const isDup = existingApplicants.some((ex) => {
-      if (r.noPendaftaran && ex.noPendaftaran && r.noPendaftaran === ex.noPendaftaran) return true;
-      if (r.nik && ex.nik && r.nik === ex.nik) return true;
-      return (
-        cleanName.toLowerCase() === ex.namaLengkap.toLowerCase().trim() &&
-        jenjang === ex.jenjang.toUpperCase()
-      );
+    const isDup = r.isDuplicate || allExisting.some((ex) => {
+      const exNoPend = (ex.noPendaftaran || '').toLowerCase().trim();
+      if (rNoPend && exNoPend && rNoPend === exNoPend) return true;
+
+      const exNik = (ex.nik || '').toString().trim();
+      if (rNik && exNik && rNik === exNik) return true;
+
+      const exNisn = (ex.nisn || '').toString().trim();
+      if (rNisn && exNisn && rNisn === exNisn) return true;
+
+      const exName = (ex.namaLengkap || '').toLowerCase().trim();
+      const exJenjang = (ex.jenjang || 'SMP').toUpperCase().trim();
+      if (rName === exName && rJenjang === exJenjang) return true;
+
+      return false;
     });
 
     if (isDup) {
-      skippedList.push({ nama: cleanName, reason: 'Duplikat (Sudah ada di database pendaftar)' });
+      skippedList.push({ nama: cleanName, reason: 'Duplikat (Sudah ada di database)' });
       continue;
     }
 
     const nominalFormulir = feeMap[jenjang] || 300000;
-    const noPendaftaran = r.noPendaftaran || `ALQ-${new Date().getFullYear()}-${String(existingApplicants.length + createdList.length + 1).padStart(6, '0')}`;
+    const noPendaftaran = r.noPendaftaran ? String(r.noPendaftaran).trim() : `ALQ-${new Date().getFullYear()}-${String(allExisting.length + createdList.length + 1).padStart(6, '0')}`;
 
     const newApplicant = await prisma.applicant.create({
       data: {
@@ -199,10 +249,11 @@ async function commitApplicants({
     });
 
     createdList.push(newApplicant);
-    existingApplicants.push({
+    allExisting.push({
       id: newApplicant.id,
       noPendaftaran: newApplicant.noPendaftaran,
       nik: newApplicant.nik,
+      nisn: newApplicant.nisn,
       namaLengkap: newApplicant.namaLengkap,
       jenjang: newApplicant.jenjang,
     });
@@ -213,7 +264,7 @@ async function commitApplicants({
 
   return NextResponse.json({
     success: true,
-    message: `Berhasil mengimpor ${createdList.length} calon santri ke Data Pendaftar. (${skippedList.length} dilewati karena duplikat)`,
+    message: `Berhasil mengimpor ${createdList.length} calon santri baru ke Data Pendaftar. (${skippedList.length} calon santri lainnya otomatis dilewati karena sudah ada sebelumnya).`,
     summary: {
       totalInput: rows.length,
       imported: createdList.length,
