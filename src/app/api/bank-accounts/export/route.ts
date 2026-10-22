@@ -198,7 +198,7 @@ export async function GET(request: Request) {
         s.noHpAyah || s.noHp || '',
         s.namaIbu || '',
         s.noHpIbu || '',
-        'YA',
+        'Ya', // Format resmi CBS: "Ya" (Y kapital, a kecil)
         s.namaIbu || '',
       ]);
     }
@@ -219,6 +219,36 @@ export async function GET(request: Request) {
 
     const worksheetData = [headers, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Format eksplisit untuk Excel: pastikan cell format Tanggal Lahir menggunakan TEXT (@)
+    if (ws['!ref']) {
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        // Kolom Tanggal Lahir (Index 4 / Kolom E): format Text (@)
+        const dobCell = XLSX.utils.encode_cell({ r: R, c: 4 });
+        if (ws[dobCell]) {
+          ws[dobCell].t = 's';
+          ws[dobCell].z = '@';
+        }
+
+        // Kolom Aktifkan Akun CBS? (Index 18 / Kolom S): format Text 'Ya'
+        const cbsCell = XLSX.utils.encode_cell({ r: R, c: 18 });
+        if (ws[cbsCell]) {
+          ws[cbsCell].t = 's';
+          ws[cbsCell].v = 'Ya';
+        }
+
+        // Kolom NISN (0), NIS (1), Nomor Telp (10), ID kartu (13), Telp Wali 1 (15), Telp Wali 2 (17)
+        [0, 1, 10, 13, 15, 17].forEach((colIdx) => {
+          const addr = XLSX.utils.encode_cell({ r: R, c: colIdx });
+          if (ws[addr]) {
+            ws[addr].t = 's';
+            ws[addr].z = '@';
+          }
+        });
+      }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Worksheet');
 
