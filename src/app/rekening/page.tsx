@@ -312,9 +312,7 @@ Terima kasih.`;
     }, 1500);
   };
 
-  const eligibleAccounts = filteredAccounts.filter(
-    (a) => a.status === 'Sudah dibuat' && (a.accountNumber || a.idNasabah)
-  );
+  const eligibleAccounts = filteredAccounts;
 
   const isAllEligibleSelected =
     eligibleAccounts.length > 0 &&
@@ -343,7 +341,7 @@ Terima kasih.`;
           : eligibleAccounts.map((a) => a.studentId || a.student?.id);
 
       if (targetIds.length === 0) {
-        alert('Pilih minimal satu santri yang sudah memiliki rekening.');
+        alert('Pilih minimal satu santri di tabel.');
         setDownloadingTagihan(false);
         return;
       }
@@ -596,16 +594,12 @@ Terima kasih.`;
                   return (
                   <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${isChecked ? 'bg-purple-50/40' : ''}`}>
                     <td className="py-3 px-3 text-center whitespace-nowrap">
-                      {isEligible ? (
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleSelect(sId)}
-                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
-                        />
-                      ) : (
-                        <span className="text-slate-300 font-mono text-xs select-none" title="Belum memiliki nomor rekening / ID Nasabah">-</span>
-                      )}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleSelect(sId)}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                      />
                     </td>
                     <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px] whitespace-nowrap">{idx + 1}</td>
                     <td className="py-3 px-4 whitespace-nowrap">
@@ -1653,7 +1647,7 @@ Terima kasih.`;
                   />
                   <div>
                     <div className="font-bold text-slate-800">
-                      Semua Siswa yang Sudah Ber-Rekening ({eligibleAccounts.length} Santri)
+                      Semua Siswa ({eligibleAccounts.length} Santri)
                     </div>
                     <p className="text-[11px] text-slate-500">
                       Otomatis mencakup seluruh santri tahun {selectedYearName} yang nomor rekeningnya sudah ada.

@@ -25,17 +25,17 @@ import {
 
 export const navigationItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
+  { name: 'Import Data PPDB', href: '/import', icon: FileUp, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
   { name: 'Data Siswa Pendaftar', href: '/pendaftar', icon: UserPlus, roles: ['ADMIN', 'PANITIA', 'UNIT', 'PEWAWANCARA'] },
+  { name: 'Pembelian Formulir', href: '/formulir', icon: Receipt, roles: ['ADMIN'] },
   { name: 'Tes Wawancara', href: '/wawancara', icon: Video, roles: ['ADMIN', 'PANITIA', 'UNIT', 'PEWAWANCARA'] },
   { name: 'Data Siswa', href: '/siswa', icon: Users, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
-  { name: 'Import Santri Aktif', href: '/import', icon: FileUp, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
-  { name: 'Draft Siswa', href: '/draft', icon: Clock, roles: ['ADMIN'] },
-  { name: 'Pembelian Formulir', href: '/formulir', icon: Receipt, roles: ['ADMIN'] },
-  { name: 'Rekomendasi', href: '/rekomendasi', icon: Award, roles: ['ADMIN'] },
-  { name: 'Status Rekening', href: '/rekening', icon: CreditCard, roles: ['ADMIN'] },
   { name: 'Daftar Ulang', href: '/daftar-ulang', icon: UserCheck, roles: ['ADMIN'] },
+  { name: 'Status Rekening', href: '/rekening', icon: CreditCard, roles: ['ADMIN'] },
+  { name: 'Rekomendasi', href: '/rekomendasi', icon: Award, roles: ['ADMIN'] },
   { name: 'Keuangan PPDB', href: '/keuangan', icon: Wallet, roles: ['ADMIN'] },
   { name: 'Laporan & Print', href: '/laporan', icon: FileSpreadsheet, roles: ['ADMIN'] },
+  { name: 'Draft Siswa', href: '/draft', icon: Clock, roles: ['ADMIN'] },
   { name: 'Pengaturan Master', href: '/pengaturan', icon: Settings, roles: ['ADMIN'] },
 ];
 

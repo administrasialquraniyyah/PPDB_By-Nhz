@@ -120,14 +120,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { studentIds, academicYearId } = body;
 
-    const where: any = {
-      bankAccount: {
-        OR: [
-          { idNasabah: { not: null } },
-          { accountNumber: { not: null } },
-        ],
-      },
-    };
+    const where: any = {};
 
     if (academicYearId) {
       where.academicYearId = academicYearId;
@@ -135,6 +128,14 @@ export async function POST(request: Request) {
 
     if (Array.isArray(studentIds) && studentIds.length > 0) {
       where.id = { in: studentIds };
+    } else {
+      where.bankAccount = {
+        OR: [
+          { idNasabah: { not: null } },
+          { accountNumber: { not: null } },
+          { student: { idKartu: { not: null } } },
+        ],
+      };
     }
 
     const students = await prisma.student.findMany({
@@ -194,7 +195,7 @@ export async function POST(request: Request) {
     const dataRows: any[][] = [];
 
     for (const s of students) {
-      const idNasabah = s.bankAccount?.idNasabah || s.bankAccount?.accountNumber || '';
+      const idNasabah = s.bankAccount?.idNasabah || s.bankAccount?.accountNumber || s.idKartu || s.noInduk || s.nisn || s.noPendaftaran || '';
       if (!idNasabah) continue;
 
       const group4 = s.academicYear?.name || '2027/2028';
