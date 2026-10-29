@@ -67,6 +67,10 @@ export default function RekeningPage() {
   >([]);
   const [customKelas, setCustomKelas] = useState<string>('');
   const [selectedGelombang, setSelectedGelombang] = useState<string>('Gelombang 1');
+  const [copyingCardImage, setCopyingCardImage] = useState(false);
+  const [copyCardImageSuccess, setCopyCardImageSuccess] = useState(false);
+  const [downloadingCardImage, setDownloadingCardImage] = useState(false);
+  const [cardToast, setCardToast] = useState<string | null>(null);
 
   // Mass Import Modal
   const [showImportModal, setShowImportModal] = useState(false);
@@ -272,6 +276,108 @@ Terima kasih.`;
     }
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2500);
+  };
+
+  const handleCopyCardImage = async () => {
+    const cardEl = document.getElementById('santri-card-print');
+    if (!cardEl) return;
+
+    setCopyingCardImage(true);
+    try {
+      const { toBlob } = await import('html-to-image');
+
+      const blob = await toBlob(cardEl, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        filter: (domNode) => {
+          if (domNode instanceof HTMLElement && domNode.classList.contains('no-print')) {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      if (!blob) throw new Error('Gagal menghasilkan gambar card');
+
+      const studentName = selectedCardAccount?.student?.namaLengkap || 'Santri';
+
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+        try {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+          setCopyCardImageSuccess(true);
+          setCardToast('✅ Gambar card berhasil disalin! Buka WhatsApp Web lalu tekan Ctrl + V untuk mengirim ke wali santri.');
+          setTimeout(() => {
+            setCopyCardImageSuccess(false);
+            setCardToast(null);
+          }, 4500);
+          return;
+        } catch (clipErr) {
+          console.warn('ClipboardItem write failed, fallback to download:', clipErr);
+        }
+      }
+
+      // Fallback: auto download if clipboard write is blocked by browser
+      const cleanName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Card_${cleanName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setCopyCardImageSuccess(true);
+      setCardToast('📥 File gambar card berhasil diunduh ke komputer Anda (siap dikirim ke WhatsApp).');
+      setTimeout(() => {
+        setCopyCardImageSuccess(false);
+        setCardToast(null);
+      }, 4500);
+    } catch (err: any) {
+      console.error('Error copying card image:', err);
+      alert('Gagal menyalin card: ' + (err.message || 'Terjadi kesalahan sistem'));
+    } finally {
+      setCopyingCardImage(false);
+    }
+  };
+
+  const handleDownloadCardImage = async () => {
+    const cardEl = document.getElementById('santri-card-print');
+    if (!cardEl) return;
+
+    setDownloadingCardImage(true);
+    try {
+      const { toPng } = await import('html-to-image');
+
+      const dataUrl = await toPng(cardEl, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        filter: (domNode) => {
+          if (domNode instanceof HTMLElement && domNode.classList.contains('no-print')) {
+            return false;
+          }
+          return true;
+        },
+      });
+
+      const studentName = selectedCardAccount?.student?.namaLengkap || 'Santri';
+      const cleanName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `Card_Santri_${cleanName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setCardToast('📥 File gambar card berhasil diunduh.');
+      setTimeout(() => setCardToast(null), 3000);
+    } catch (err: any) {
+      console.error('Error downloading card image:', err);
+      alert('Gagal mengunduh gambar: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setDownloadingCardImage(false);
+    }
   };
 
   const handleOpenExportModal = async () => {
@@ -1132,38 +1238,118 @@ Terima kasih.`;
               `}</style>
 
               {/* Quick Action Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <span className="text-[11px] text-slate-600 flex items-center gap-1.5 font-medium">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  Gunakan tombol di samping untuk kirim ke WhatsApp atau cetak / simpan:
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyWhatsApp(selectedCardAccount, customTagihanItems, totalTagihan, customKelas)}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-sm transition text-xs"
-                  >
-                    {copySuccess ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Tersalin!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Salin Teks WhatsApp</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1.5 border border-slate-300 transition text-xs"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Cetak / PDF</span>
-                  </button>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-purple-50 border border-emerald-200/80 rounded-xl shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-800">
+                        Bagikan Informasi Card Santri ke Wali
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        Klik <strong>Salin Gambar Card</strong>, lalu cukup buka chat WhatsApp Wali Santri dan tekan <strong>Ctrl + V</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Primary: Salin Gambar Card (Direct Clipboard PNG) */}
+                    <button
+                      type="button"
+                      onClick={handleCopyCardImage}
+                      disabled={copyingCardImage}
+                      title="Salin kartu dalam bentuk gambar (PNG) langsung ke clipboard. Anda bisa langsung paste (Ctrl+V) di WhatsApp Web."
+                      className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition text-xs ${
+                        copyCardImageSuccess
+                          ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                          : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
+                      } disabled:opacity-60`}
+                    >
+                      {copyingCardImage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyiapkan Gambar...</span>
+                        </>
+                      ) : copyCardImageSuccess ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Gambar Tersalin! (Paste di WA)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Salin Gambar Card</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Secondary: Download PNG */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadCardImage}
+                      disabled={downloadingCardImage}
+                      title="Download card sebagai file gambar PNG ke komputer"
+                      className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-bold flex items-center gap-1.5 border border-slate-300 transition text-xs shadow-xs disabled:opacity-60"
+                    >
+                      {downloadingCardImage ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5 text-slate-600" />
+                      )}
+                      <span>Unduh PNG</span>
+                    </button>
+
+                    {/* Tertiary: Salin Teks WA */}
+                    <button
+                      type="button"
+                      onClick={() => handleCopyWhatsApp(selectedCardAccount, customTagihanItems, totalTagihan, customKelas)}
+                      title="Salin rincian informasi dan tagihan dalam bentuk teks pesan WhatsApp"
+                      className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-semibold flex items-center gap-1.5 border border-slate-300 transition text-xs shadow-xs"
+                    >
+                      {copySuccess ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700 font-bold">Teks Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Salin Teks WA</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Quaternary: Cetak/PDF */}
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      title="Cetak langsung ke printer atau simpan sebagai PDF"
+                      className="px-2.5 py-2 bg-white hover:bg-slate-50 text-slate-600 rounded-xl font-medium flex items-center gap-1 border border-slate-200 transition text-xs shadow-xs"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Cetak</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Toast Notification Alert */}
+                {cardToast && (
+                  <div className="p-2.5 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{cardToast}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCardToast(null)}
+                      className="text-emerald-700 hover:text-emerald-900 font-bold text-xs px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* The Visual Card Container - Designed for Clean Screenshots */}
@@ -1558,14 +1744,46 @@ Terima kasih.`;
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCardAccount(null)}
-                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition text-xs"
-                >
-                  Tutup
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                <div className="text-[11px] text-slate-500">
+                  Kartu ini siap disalin sebagai gambar untuk dikirim via WhatsApp.
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyCardImage}
+                    disabled={copyingCardImage}
+                    className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition text-xs ${
+                      copyCardImageSuccess
+                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    } disabled:opacity-60`}
+                  >
+                    {copyingCardImage ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyiapkan Gambar...</span>
+                      </>
+                    ) : copyCardImageSuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Gambar Tersalin! (Paste di WA)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin Gambar Card</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCardAccount(null)}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition text-xs"
+                  >
+                    Tutup
+                  </button>
+                </div>
               </div>
             </div>
           </Modal>
