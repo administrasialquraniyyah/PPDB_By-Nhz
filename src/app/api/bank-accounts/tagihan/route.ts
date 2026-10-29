@@ -15,7 +15,7 @@ interface BillItem {
 
 // Master data jadwal produk & tanggal mulai
 const SPP_SCHEDULE: { kode: string; tgl: string }[] = [
-  { kode: '155', tgl: '2027-01-01' },
+  { kode: '155', tgl: '2026-01-01' },
   { kode: '156', tgl: '2027-07-01' },
   { kode: '157', tgl: '2027-08-01' },
   { kode: '158', tgl: '2027-09-01' },
@@ -48,11 +48,11 @@ function getBillsForStudent(jenjang: string, jk: string): {
         periode: 'Bulanan',
         amount: 1650000,
       })),
-      { kodeProduk: '167', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 3600000 },
-      { kodeProduk: '168', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1000000 },
-      { kodeProduk: '169', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
-      { kodeProduk: '170', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
-      { kodeProduk: '171', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 6000000 },
+      { kodeProduk: '167', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 3600000 },
+      { kodeProduk: '168', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1000000 },
+      { kodeProduk: '169', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
+      { kodeProduk: '170', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
+      { kodeProduk: '171', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 6000000 },
     ];
     return { kodeGroup1: 'SMA', kodeGroup2: '10', keterangan: '', items };
   }
@@ -69,11 +69,11 @@ function getBillsForStudent(jenjang: string, jk: string): {
         periode: 'Bulanan',
         amount: 550000,
       })),
-      { kodeProduk: '167', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: perlengkapan },
-      { kodeProduk: '168', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 100000 },
-      { kodeProduk: '169', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1600000 },
-      { kodeProduk: '170', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2300000 },
-      { kodeProduk: '171', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 5500000 },
+      { kodeProduk: '167', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: perlengkapan },
+      { kodeProduk: '168', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 100000 },
+      { kodeProduk: '169', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1600000 },
+      { kodeProduk: '170', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2300000 },
+      { kodeProduk: '171', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 5500000 },
     ];
     return { kodeGroup1: 'SD', kodeGroup2: '1', keterangan: ket, items };
   }
@@ -88,10 +88,10 @@ function getBillsForStudent(jenjang: string, jk: string): {
         periode: 'Bulanan',
         amount: 400000,
       })),
-      { kodeProduk: '167', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1050000 },
-      { kodeProduk: '169', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 700000 },
-      { kodeProduk: '170', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1000000 },
-      { kodeProduk: '171', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1500000 },
+      { kodeProduk: '167', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1050000 },
+      { kodeProduk: '169', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 700000 },
+      { kodeProduk: '170', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1000000 },
+      { kodeProduk: '171', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1500000 },
     ];
     return { kodeGroup1: 'TK', kodeGroup2: 'A', keterangan: '', items };
   }
@@ -106,11 +106,11 @@ function getBillsForStudent(jenjang: string, jk: string): {
       periode: 'Bulanan',
       amount: 1600000,
     })),
-    { kodeProduk: '167', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 3300000 },
-    { kodeProduk: '168', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 900000 },
-    { kodeProduk: '169', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1950000 },
-    { kodeProduk: '170', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
-    { kodeProduk: '171', tanggalMulai: '2027-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 6000000 },
+    { kodeProduk: '167', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 3300000 },
+    { kodeProduk: '168', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 900000 },
+    { kodeProduk: '169', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 1950000 },
+    { kodeProduk: '170', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 2100000 },
+    { kodeProduk: '171', tanggalMulai: '2026-01-01', jangkaWaktu: 1, setiapTanggal: 1, periode: 'Bulanan', amount: 6000000 },
   ];
   return { kodeGroup1: 'SMP', kodeGroup2: '7', keterangan: '', items };
 }
@@ -242,10 +242,44 @@ export async function POST(request: Request) {
       { s: { r: 0, c: 11 }, e: { r: 0, c: 15 } },
     ];
 
+    ws['!cols'] = [
+      { wch: 12 }, // Kode Kantor
+      { wch: 16 }, // ID Nasabah
+      { wch: 12 }, // Kode Produk
+      { wch: 14 }, // No Alternatif
+      { wch: 15 }, // Setoran Minimal
+      { wch: 14 }, // Saldo Minimal
+      { wch: 16 }, // Keterangan
+      { wch: 14 }, // Kode Group 1
+      { wch: 14 }, // Kode Group 2
+      { wch: 14 }, // Kode Group 3
+      { wch: 14 }, // Kode Group 4
+      { wch: 16 }, // Tanggal Mulai
+      { wch: 14 }, // Jangka Waktu
+      { wch: 14 }, // Setiap Tanggal
+      { wch: 24 }, // Harian/Mingguan/Bulanan
+      { wch: 18 }, // Setoran per Periode
+    ];
+
+    // Format Column L (Tanggal Mulai, col index 11) as Excel Date (yyyy-mm-dd)
+    for (let r = 2; r < worksheetData.length; r++) {
+      const cellRef = XLSX.utils.encode_cell({ r, c: 11 });
+      const cell = ws[cellRef];
+      if (cell && typeof cell.v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cell.v)) {
+        const [y, m, d] = cell.v.split('-').map(Number);
+        const utcDate = Date.UTC(y, m - 1, d);
+        const excelEpoch = Date.UTC(1899, 11, 30);
+        const serial = Math.round((utcDate - excelEpoch) / (24 * 60 * 60 * 1000));
+        cell.t = 'n';
+        cell.v = serial;
+        cell.z = 'yyyy-mm-dd';
+      }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Worksheet');
 
-    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellDates: true });
     const filename = `Format_Tagihan_BSI_${Date.now()}.xlsx`;
 
     return new NextResponse(excelBuffer, {
