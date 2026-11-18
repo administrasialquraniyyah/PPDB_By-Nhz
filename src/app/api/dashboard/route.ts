@@ -76,8 +76,28 @@ export async function GET(request: Request) {
       unknown: 0,
     };
 
-    // 5. Stats by Gelombang
+    // 5. Stats by Gelombang & Matrix Jenjang x Gelombang
     const gelombangCounts: Record<string, number> = {};
+    const gelombangSet = new Set<string>();
+    const jenjangGelombangMatrix: Record<
+      string,
+      {
+        TK: { total: number; L: number; P: number };
+        SD: { total: number; L: number; P: number };
+        SMP: { total: number; L: number; P: number };
+        SMA: { total: number; L: number; P: number };
+        total: number;
+        L: number;
+        P: number;
+      }
+    > = {};
+
+    const totalsByJenjang: Record<string, { total: number; L: number; P: number }> = {
+      TK: { total: 0, L: 0, P: 0 },
+      SD: { total: 0, L: 0, P: 0 },
+      SMP: { total: 0, L: 0, P: 0 },
+      SMA: { total: 0, L: 0, P: 0 },
+    };
 
     // 6. Stats by Rekomendasi
     const rekomendasiStats = {
@@ -107,21 +127,58 @@ export async function GET(request: Request) {
 
     students.forEach((s) => {
       // Jenjang
-      const j = s.jenjang.toUpperCase();
-      if (j === 'TK' || j === 'STK') jenjangCounts.TK++;
-      else if (j === 'SD') jenjangCounts.SD++;
-      else if (j === 'SMP') jenjangCounts.SMP++;
-      else if (j === 'SMA') jenjangCounts.SMA++;
-      else jenjangCounts.SMP++;
+      const jRaw = (s.jenjang || '').toUpperCase().trim();
+      let j: 'TK' | 'SD' | 'SMP' | 'SMA' = 'SMP';
+      if (jRaw === 'TK' || jRaw === 'STK' || jRaw.includes('TK')) j = 'TK';
+      else if (jRaw === 'SD' || jRaw.includes('SD')) j = 'SD';
+      else if (jRaw === 'SMP' || jRaw.includes('SMP')) j = 'SMP';
+      else if (jRaw === 'SMA' || jRaw.includes('SMA')) j = 'SMA';
+
+      jenjangCounts[j]++;
 
       // Gender
-      if (s.jenisKelamin === 'L') genderCounts.L++;
-      else if (s.jenisKelamin === 'P') genderCounts.P++;
-      else genderCounts.unknown++;
+      const jkRaw = (s.jenisKelamin || '').toUpperCase().trim();
+      let jk: 'L' | 'P' | 'unknown' = 'unknown';
+      if (jkRaw === 'L' || jkRaw.startsWith('L') || jkRaw.includes('LAKI')) {
+        jk = 'L';
+        genderCounts.L++;
+      } else if (jkRaw === 'P' || jkRaw.startsWith('P') || jkRaw.includes('PEREMPUAN')) {
+        jk = 'P';
+        genderCounts.P++;
+      } else {
+        genderCounts.unknown++;
+      }
 
       // Gelombang
-      const gel = s.gelombang || 'Gelombang 1';
+      const gel = (s.gelombang || 'Gelombang 1').trim();
       gelombangCounts[gel] = (gelombangCounts[gel] || 0) + 1;
+      gelombangSet.add(gel);
+
+      if (!jenjangGelombangMatrix[gel]) {
+        jenjangGelombangMatrix[gel] = {
+          TK: { total: 0, L: 0, P: 0 },
+          SD: { total: 0, L: 0, P: 0 },
+          SMP: { total: 0, L: 0, P: 0 },
+          SMA: { total: 0, L: 0, P: 0 },
+          total: 0,
+          L: 0,
+          P: 0,
+        };
+      }
+
+      jenjangGelombangMatrix[gel][j].total++;
+      jenjangGelombangMatrix[gel].total++;
+      totalsByJenjang[j].total++;
+
+      if (jk === 'L') {
+        jenjangGelombangMatrix[gel][j].L++;
+        jenjangGelombangMatrix[gel].L++;
+        totalsByJenjang[j].L++;
+      } else if (jk === 'P') {
+        jenjangGelombangMatrix[gel][j].P++;
+        jenjangGelombangMatrix[gel].P++;
+        totalsByJenjang[j].P++;
+      }
 
       // Rekomendasi
       if (s.recommendation) {
@@ -240,6 +297,11 @@ export async function GET(request: Request) {
       statusRekening: s.bankAccount?.status || 'Belum dibuat',
     }));
 
+    // Sort gelombang list naturally (e.g. Gelombang 1, Gelombang 2)
+    const sortedGelombangList = Array.from(gelombangSet).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
     return NextResponse.json({
       success: true,
       data: {
@@ -251,6 +313,15 @@ export async function GET(request: Request) {
           byJenjang: jenjangCounts,
           byGender: genderCounts,
           byGelombang: gelombangCounts,
+          byJenjangAndGelombang: {
+            gelombangList: sortedGelombangList,
+            jenjangList: ['TK', 'SD', 'SMP', 'SMA'],
+            matrix: jenjangGelombangMatrix,
+            totalsByJenjang,
+            grandTotal: students.length,
+            totalL: genderCounts.L,
+            totalP: genderCounts.P,
+          },
         },
         rekomendasi: rekomendasiStats,
         rekening: rekeningStats,

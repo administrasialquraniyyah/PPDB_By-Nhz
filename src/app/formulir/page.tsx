@@ -309,7 +309,76 @@ export default function FormulirPage() {
             <p className="font-semibold text-slate-700 text-sm">Tidak ada data formulir</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile Card List View (Visible on screens < md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredPayments.map((p, idx) => (
+                <div key={p.id} className="p-3.5 space-y-2 hover:bg-slate-50/60 transition">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-slate-400 font-mono">#{idx + 1}</span>
+                        <span className="font-bold text-slate-900 text-sm leading-tight">
+                          {p.student?.namaLengkap}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {p.student?.noPendaftaran || '-'}
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                      {p.student?.jenjang || '-'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[10px]">Nominal Bayar:</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(p.nominalAktual)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[10px]">Status & Metode:</span>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                            p.status === 'Lunas'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : p.status === 'Diskon Penuh'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                        {p.metodePembayaran && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700">
+                            {p.metodePembayaran}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {p.diskon > 0 && (
+                      <div className="flex items-center justify-between text-[10px] text-amber-700">
+                        <span>Diskon:</span>
+                        <span>-{formatCurrency(p.diskon)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end pt-1">
+                    <button
+                      onClick={() => setEditingItem({ ...p })}
+                      className="px-2.5 py-1 text-slate-700 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg text-xs font-semibold transition"
+                    >
+                      Edit Formulir
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200/80">
                 <tr>
@@ -398,6 +467,7 @@ export default function FormulirPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

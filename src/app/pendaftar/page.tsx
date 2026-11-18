@@ -448,7 +448,7 @@ export default function DataPendaftarPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -508,22 +508,199 @@ export default function DataPendaftarPage() {
         </div>
       </div>
 
-      {/* Main Full-Width Table */}
+      {/* Main Container */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto min-w-full">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-2.5 px-3 w-10 text-center">No</th>
-                <th className="py-2.5 px-4 min-w-[200px]">Calon Santri Pendaftar</th>
-                <th className="py-2.5 px-3 w-28">Jenjang</th>
-                <th className="py-2.5 px-4 min-w-[170px]">Kontak & Asal</th>
-                <th className="py-2.5 px-4 min-w-[160px]">Status Formulir</th>
-                <th className="py-2.5 px-3 w-36">Status Pendaftaran</th>
-                <th className="py-2.5 px-4 min-w-[190px] text-center">Aksi Pengelola</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        {loading ? (
+          <div className="text-center py-12 text-slate-400">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-600" />
+            Memuat data pendaftar...
+          </div>
+        ) : displayedApplicants.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+            Belum ada calon santri pendaftar untuk filter ini.
+          </div>
+        ) : (
+          <>
+            {/* Mobile Card List View (screens < md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {displayedApplicants.map((app, idx) => {
+                const isCancelled = app.statusPendaftaran === 'DIBATALKAN';
+                const isPassed = app.statusPendaftaran === 'LULUS';
+                const hasStudent = Boolean(app.studentId);
+
+                return (
+                  <div key={app.id} className="p-3.5 space-y-2.5 hover:bg-slate-50/60 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-slate-400 font-mono">#{idx + 1}</span>
+                          <span className="font-bold text-slate-900 text-sm leading-tight">{app.namaLengkap}</span>
+                          {app.jenisKelamin && (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                app.jenisKelamin === 'L' ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {app.jenisKelamin}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          {app.noPendaftaran || '-'}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                          {app.jenjang}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-0.5">{app.gelombang}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60">
+                      <div>
+                        <span className="text-slate-400 text-[10px] block">Kontak / HP:</span>
+                        <span className="font-semibold text-slate-800 flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          {app.noHp || '-'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 truncate block mt-0.5">
+                          {app.asalSekolah || 'Asal Sekolah -'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 text-[10px] block">Status Pendaftaran:</span>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            app.statusPendaftaran === 'TERDAFTAR'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : app.statusPendaftaran === 'MENUNGGU_TES'
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : app.statusPendaftaran === 'MENGIKUTI_TES'
+                              ? 'bg-amber-50 text-amber-800 border border-amber-300 animate-pulse'
+                              : app.statusPendaftaran === 'LULUS'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : app.statusPendaftaran === 'TIDAK_LULUS'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-slate-200 text-slate-700 border border-slate-300'
+                          }`}
+                        >
+                          {app.statusPendaftaran === 'MENGIKUTI_TES' ? 'Sedang Tes' : app.statusPendaftaran}
+                        </span>
+                      </div>
+
+                      <div className="col-span-2 flex items-center justify-between pt-1 border-t border-slate-200/60">
+                        <span className="text-slate-400 text-[10px]">Formulir:</span>
+                        <div>
+                          {app.statusBayarFormulir === 'LUNAS_CASH' ||
+                          app.statusBayarFormulir === 'LUNAS_TRANSFER' ||
+                          (app as any).statusBayarFormulir === 'Lunas' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPaymentModal(app)}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1"
+                            >
+                              <span>Lunas ({formatCurrency(app.nominalFormulir || 300000)})</span>
+                              <Edit2 className="w-2.5 h-2.5 opacity-60" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPaymentModal(app)}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1"
+                            >
+                              <span>Belum Dibayar</span>
+                              <Edit2 className="w-2.5 h-2.5 opacity-60" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1.5 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDetail(app)}
+                        className="px-2.5 py-1 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Detail</span>
+                      </button>
+
+                      {!isCancelled && (
+                        <Link
+                          href={`/wawancara/${app.id}`}
+                          className="px-2.5 py-1 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Wawancara</span>
+                        </Link>
+                      )}
+
+                      {isPassed && !hasStudent && (
+                        <button
+                          type="button"
+                          onClick={() => handlePromoteToStudent(app)}
+                          className="px-2.5 py-1 text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>Jadikan Siswa</span>
+                        </button>
+                      )}
+
+                      {!isCancelled && !hasStudent && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCancelModal(app)}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                          title="Batalkan Pendaftaran"
+                        >
+                          <UserX className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {isCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => handleReactivate(app)}
+                          className="px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg font-semibold flex items-center gap-1 transition"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Pulihkan</span>
+                        </button>
+                      )}
+
+                      {hasStudent && (
+                        <Link
+                          href="/siswa"
+                          className="px-2 py-1 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg"
+                        >
+                          Data Siswa ✓
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (screens >= md) */}
+            <div className="hidden md:block overflow-x-auto min-w-full">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <th className="py-2.5 px-3 w-10 text-center">No</th>
+                    <th className="py-2.5 px-4 min-w-[200px]">Calon Santri Pendaftar</th>
+                    <th className="py-2.5 px-3 w-28">Jenjang</th>
+                    <th className="py-2.5 px-4 min-w-[170px]">Kontak & Asal</th>
+                    <th className="py-2.5 px-4 min-w-[160px]">Status Formulir</th>
+                    <th className="py-2.5 px-3 w-36">Status Pendaftaran</th>
+                    <th className="py-2.5 px-4 min-w-[190px] text-center">Aksi Pengelola</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
@@ -733,7 +910,9 @@ export default function DataPendaftarPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </>
+    )}
+  </div>
 
       {/* Modal Update Pembayaran Formulir */}
       <Modal

@@ -60,42 +60,44 @@ export default function Navbar() {
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3.5 py-2 sm:px-6">
       <div className="flex items-center justify-between gap-3 max-w-[1600px] mx-auto">
         {/* Left: Mobile Toggle & Brand Logo */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => setIsMobileNavOpen(true)}
-            className="p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl lg:hidden transition"
+            className="p-1.5 sm:p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl lg:hidden transition shrink-0"
             title="Buka Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
+          <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group min-w-0">
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
               <img
                 src="/assets/logo/logo-emblem.png"
                 alt="Logo Pondok Pesantren Al-Qur'aniyyah"
-                width={40}
-                height={40}
-                style={{ width: '40px', height: '40px' }}
-                className="w-10 h-10 object-contain filter drop-shadow-sm"
+                width={36}
+                height={36}
+                style={{ width: '36px', height: '36px' }}
+                className="w-8 h-8 sm:w-10 sm:h-10 object-contain filter drop-shadow-sm"
               />
             </div>
-            <div>
-              <div className="text-xs sm:text-sm font-black tracking-tight text-slate-900 leading-none">
+            <div className="min-w-0">
+              <div className="text-xs sm:text-sm font-black tracking-tight text-slate-900 leading-none truncate">
                 PPDB AL-QUR’ANIYYAH
               </div>
-              <div className="text-[10px] sm:text-[11px] text-emerald-700 font-semibold leading-tight mt-0.5">
-                Database & Keuangan Terpadu
+              <div className="text-[9px] sm:text-[11px] text-emerald-700 font-semibold leading-tight mt-0.5 truncate hidden xs:block">
+                Database & Keuangan
               </div>
             </div>
           </Link>
         </div>
 
         {/* Right: Academic Year Selector, User Info & Logout Button */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <YearSelector />
-          <BackupButton />
-          <DbStatusBadge />
+          <div className="hidden sm:flex items-center gap-2">
+            <BackupButton />
+            <DbStatusBadge />
+          </div>
 
           {userEmail && (
             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200">
