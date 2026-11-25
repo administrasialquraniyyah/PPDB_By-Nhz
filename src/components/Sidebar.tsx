@@ -26,13 +26,13 @@ import {
 export const navigationItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
   { name: 'Import Data PPDB', href: '/import', icon: FileUp, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
-  { name: 'Data Siswa Pendaftar', href: '/pendaftar', icon: UserPlus, roles: ['ADMIN', 'PANITIA', 'UNIT', 'PEWAWANCARA'] },
+  { name: 'Data Siswa Pendaftar', href: '/pendaftar', icon: UserPlus, roles: ['ADMIN', 'PANITIA', 'PEWAWANCARA'] },
   { name: 'Pembelian Formulir', href: '/formulir', icon: Receipt, roles: ['ADMIN'] },
-  { name: 'Tes Wawancara', href: '/wawancara', icon: Video, roles: ['ADMIN', 'PANITIA', 'UNIT', 'PEWAWANCARA'] },
+  { name: 'Tes Wawancara', href: '/wawancara', icon: Video, roles: ['ADMIN', 'PANITIA', 'PEWAWANCARA'] },
   { name: 'Data Siswa', href: '/siswa', icon: Users, roles: ['ADMIN', 'PANITIA', 'UNIT'] },
   { name: 'Daftar Ulang', href: '/daftar-ulang', icon: UserCheck, roles: ['ADMIN'] },
   { name: 'Status Rekening', href: '/rekening', icon: CreditCard, roles: ['ADMIN'] },
-  { name: 'Rekomendasi', href: '/rekomendasi', icon: Award, roles: ['ADMIN'] },
+  { name: 'Rekomendasi', href: '/rekomendasi', icon: Award, roles: ['ADMIN', 'UNIT'] },
   { name: 'Keuangan PPDB', href: '/keuangan', icon: Wallet, roles: ['ADMIN'] },
   { name: 'Laporan & Print', href: '/laporan', icon: FileSpreadsheet, roles: ['ADMIN'] },
   { name: 'Draft Siswa', href: '/draft', icon: Clock, roles: ['ADMIN'] },
@@ -64,10 +64,22 @@ export default function Sidebar() {
           if (user?.email) {
             setUserEmail(user.email);
             const emailLower = user.email.toLowerCase();
-            if (emailLower.includes('unit.sd') || emailLower.startsWith('sd@')) {
+            if (emailLower.includes('unit.tk') || emailLower.startsWith('tk@')) {
+              setUserRole('UNIT');
+              setJenjangScope('TK');
+              setUserRoleLabel('Unit TK');
+            } else if (emailLower.includes('unit.sd') || emailLower.startsWith('sd@')) {
               setUserRole('UNIT');
               setJenjangScope('SD');
               setUserRoleLabel('Unit SD');
+            } else if (emailLower.includes('unit.smp') || emailLower.startsWith('smp@')) {
+              setUserRole('UNIT');
+              setJenjangScope('SMP');
+              setUserRoleLabel('Unit SMP');
+            } else if (emailLower.includes('unit.sma') || emailLower.startsWith('sma@')) {
+              setUserRole('UNIT');
+              setJenjangScope('SMA');
+              setUserRoleLabel('Unit SMA');
             } else if (emailLower.includes('panitia')) {
               setUserRole('PANITIA');
               setUserRoleLabel('Panitia PPDB');

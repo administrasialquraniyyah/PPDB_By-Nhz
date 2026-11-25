@@ -25,6 +25,9 @@ import {
 export default function RekomendasiPage() {
   const { selectedYearId, selectedYearName } = useApp();
 
+  const [userRole, setUserRole] = useState<'ADMIN' | 'PANITIA' | 'UNIT' | 'PEWAWANCARA' | null>(null);
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
+
   const [groupedList, setGroupedList] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({
@@ -91,6 +94,18 @@ export default function RekomendasiPage() {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user) {
+          setUserRole(d.user.role);
+          setJenjangScope(d.user.jenjangScope);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchRecommendations();
@@ -177,16 +192,25 @@ export default function RekomendasiPage() {
       {/* Header */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Modul Rekomendasi & Apresiasi
+              {userRole === 'UNIT' && jenjangScope
+                ? `Rekomendasi Unit ${jenjangScope}`
+                : 'Modul Rekomendasi & Apresiasi'}
             </h1>
             <span className="bg-indigo-100 text-indigo-800 text-xs px-2.5 py-0.5 rounded-full font-bold">
               {summary.totalStudents} Santri Direkomendasikan
             </span>
+            {userRole === 'UNIT' && jenjangScope && (
+              <span className="bg-teal-100 text-teal-800 border border-teal-300 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                Akses Khusus Unit {jenjangScope}
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Data perekomendasi dari guru, karyawan internal, wali santri, atau alumni ({selectedYearName}).
+            {userRole === 'UNIT' && jenjangScope
+              ? `Data perekomendasi khusus untuk santri Unit ${jenjangScope} (${selectedYearName}).`
+              : `Data perekomendasi dari guru, karyawan internal, wali santri, atau alumni (${selectedYearName}).`}
           </p>
         </div>
 

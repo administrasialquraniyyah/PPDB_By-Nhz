@@ -15,21 +15,44 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'ADMIN' | 'PEWAWANCARA' | null>(null);
+  const [userRole, setUserRole] = useState<'ADMIN' | 'PANITIA' | 'UNIT' | 'PEWAWANCARA' | null>(null);
+  const [userRoleLabel, setUserRoleLabel] = useState<string>('Admin PPDB');
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          setUserEmail(user.email);
-          const emailLower = user.email.toLowerCase();
-          if (emailLower.includes('penguji') || emailLower.includes('pewawancara')) {
-            setUserRole('PEWAWANCARA');
-          } else {
-            setUserRole('ADMIN');
+        const res = await fetch('/api/auth/me');
+        const json = await res.json();
+        if (json.success && json.user) {
+          setUserRole(json.user.role);
+          setUserRoleLabel(json.user.roleLabel || json.user.role);
+          setUserEmail(json.user.email);
+        } else {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.email) {
+            setUserEmail(user.email);
+            const emailLower = user.email.toLowerCase();
+            if (emailLower.includes('unit.tk') || emailLower.startsWith('tk@')) {
+              setUserRole('UNIT');
+              setUserRoleLabel('Unit TK');
+            } else if (emailLower.includes('unit.sd') || emailLower.startsWith('sd@')) {
+              setUserRole('UNIT');
+              setUserRoleLabel('Unit SD');
+            } else if (emailLower.includes('unit.smp') || emailLower.startsWith('smp@')) {
+              setUserRole('UNIT');
+              setUserRoleLabel('Unit SMP');
+            } else if (emailLower.includes('unit.sma') || emailLower.startsWith('sma@')) {
+              setUserRole('UNIT');
+              setUserRoleLabel('Unit SMA');
+            } else if (emailLower.includes('penguji') || emailLower.includes('pewawancara')) {
+              setUserRole('PEWAWANCARA');
+              setUserRoleLabel('Pewawancara');
+            } else {
+              setUserRole('ADMIN');
+              setUserRoleLabel('Super Admin');
+            }
           }
         }
       } catch (e) {}
@@ -107,7 +130,7 @@ export default function Navbar() {
                 </div>
                 <div className="text-[10px] font-semibold text-teal-700 flex items-center justify-end gap-1">
                   <Shield className="w-3 h-3 text-teal-600" />
-                  <span>{userRole === 'PEWAWANCARA' ? 'Pewawancara' : 'Admin PPDB'}</span>
+                  <span>{userRoleLabel}</span>
                 </div>
               </div>
 

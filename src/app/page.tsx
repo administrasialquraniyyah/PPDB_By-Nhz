@@ -29,6 +29,20 @@ export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeGelombangTab, setActiveGelombangTab] = useState<string>('ALL');
+  const [userRole, setUserRole] = useState<'ADMIN' | 'PANITIA' | 'UNIT' | 'PEWAWANCARA' | null>(null);
+  const [jenjangScope, setJenjangScope] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.user) {
+          setUserRole(d.user.role);
+          setJenjangScope(d.user.jenjangScope);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -154,19 +168,28 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Dashboard PPDB & Keuangan
+              {userRole === 'UNIT' && jenjangScope
+                ? `Dashboard PPDB Unit ${jenjangScope}`
+                : 'Dashboard PPDB & Keuangan'}
             </h1>
             <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold">
               {selectedYearName}
             </span>
+            {userRole === 'UNIT' && jenjangScope && (
+              <span className="bg-teal-100 text-teal-800 border border-teal-300 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                Akses Khusus Unit {jenjangScope}
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Ringkasan data pendaftar, rekomendasi, rekening bank, daftar ulang, dan arus kas yayasan.
+            {userRole === 'UNIT' && jenjangScope
+              ? `Ringkasan data pendaftar, gelombang, dan rekomendasi khusus santri Unit ${jenjangScope}.`
+              : 'Ringkasan data pendaftar, rekomendasi, rekening bank, daftar ulang, dan arus kas yayasan.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {pendaftar.draftCount > 0 && (
+          {userRole === 'ADMIN' && pendaftar.draftCount > 0 && (
             <Link
               href="/draft"
               className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold transition"
@@ -258,9 +281,13 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 text-[10px] sm:text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-2">
             <span className="text-amber-600">Belum: {rekening.belum}</span>
-            <Link href="/rekening" className="text-purple-600 hover:underline font-semibold">
-              Export →
-            </Link>
+            {userRole === 'ADMIN' ? (
+              <Link href="/rekening" className="text-purple-600 hover:underline font-semibold">
+                Export →
+              </Link>
+            ) : (
+              <span className="text-slate-400">Unit Terkait</span>
+            )}
           </div>
         </div>
 
@@ -286,9 +313,13 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 text-[10px] sm:text-[11px] text-slate-400 border-t border-white/10 pt-2 flex justify-between items-center">
             <span className="truncate">Keluar: {formatCurrency(keuangan.totalPengeluaran)}</span>
-            <Link href="/keuangan" className="text-emerald-400 hover:underline font-medium shrink-0 ml-1">
-              Rincian →
-            </Link>
+            {userRole === 'ADMIN' ? (
+              <Link href="/keuangan" className="text-emerald-400 hover:underline font-medium shrink-0 ml-1">
+                Rincian →
+              </Link>
+            ) : (
+              <span className="text-slate-400 text-[10px]">Data Unit</span>
+            )}
           </div>
         </div>
       </div>
@@ -545,12 +576,18 @@ export default function DashboardPage() {
               Data aktual dari pembelian formulir, daftar ulang, apresiasi rekomendasi, & pengeluaran yayasan.
             </p>
           </div>
-          <Link
-            href="/keuangan"
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 self-start sm:self-auto"
-          >
-            Buka Modul Keuangan →
-          </Link>
+          {userRole === 'ADMIN' ? (
+            <Link
+              href="/keuangan"
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 self-start sm:self-auto"
+            >
+              Buka Modul Keuangan →
+            </Link>
+          ) : (
+            <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 self-start sm:self-auto">
+              Ringkasan Unit {jenjangScope}
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">

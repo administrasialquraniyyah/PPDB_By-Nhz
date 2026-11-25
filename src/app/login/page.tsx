@@ -160,7 +160,7 @@ export default function LoginPage() {
           <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-2.5 text-[11px] text-slate-500">
             <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
             <span>
-              Hak akses sistem dipisahkan otomatis: <b>Super Admin</b>, <b>Panitia PPDB</b>, dan <b>Unit SD</b>.
+              Hak akses sistem dipisahkan otomatis: <b>Super Admin</b>, <b>Panitia PPDB</b>, dan <b>Unit Sekolah (TK, SD, SMP, SMA)</b>.
             </span>
           </div>
         </div>

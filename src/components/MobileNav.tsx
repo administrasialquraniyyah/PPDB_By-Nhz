@@ -19,6 +19,7 @@ import {
   Shield,
   CreditCard,
   UserCheck,
+  Award,
 } from 'lucide-react';
 
 export default function MobileNav() {
@@ -68,6 +69,13 @@ export default function MobileNav() {
         { name: 'Rekening', href: '/rekening', icon: CreditCard },
         { name: 'Daftar Ulang', href: '/daftar-ulang', icon: UserCheck },
         { name: 'Keuangan', href: '/keuangan', icon: Wallet },
+      ]
+    : userRole === 'UNIT'
+    ? [
+        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { name: 'Import', href: '/import', icon: FileUp },
+        { name: 'Siswa', href: '/siswa', icon: Users },
+        { name: 'Rekomendasi', href: '/rekomendasi', icon: Award },
       ]
     : [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },

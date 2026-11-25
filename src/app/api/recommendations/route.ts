@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { triggerAutoBackup } from '@/lib/backupService';
+import { verifySession } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const academicYearId = searchParams.get('academicYearId');
     const category = searchParams.get('category');
     const paymentStatus = searchParams.get('paymentStatus');
+    const jenjang = searchParams.get('jenjang');
 
     const where: any = {
       student: {
@@ -25,6 +30,15 @@ export async function GET(request: Request) {
     }
     if (paymentStatus) {
       where.paymentStatus = paymentStatus;
+    }
+
+    // Scoped Jenjang for UNIT
+    const effectiveJenjang = (user?.role === 'UNIT' && user?.jenjangScope)
+      ? user.jenjangScope
+      : jenjang;
+
+    if (effectiveJenjang) {
+      where.student.jenjang = effectiveJenjang;
     }
 
     const recommendations = await prisma.recommendation.findMany({
@@ -120,11 +134,28 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
     const { studentId, recommenderName, recommenderCategory = 'Guru/Internal', appreciationAmount, paymentStatus = 'Belum', notes } = body;
 
     if (!studentId || !recommenderName) {
       return NextResponse.json({ success: false, error: 'Siswa dan Nama Perekomendasi wajib diisi' }, { status: 400 });
+    }
+
+    // If UNIT, check that student belongs to their unit
+    if (user?.role === 'UNIT' && user?.jenjangScope) {
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        select: { jenjang: true },
+      });
+      if (!student || student.jenjang !== user.jenjangScope) {
+        return NextResponse.json(
+          { success: false, error: `Akses ditolak: Anda hanya dapat menambahkan rekomendasi untuk siswa Unit ${user.jenjangScope}` },
+          { status: 403 }
+        );
+      }
     }
 
     const rec = await prisma.recommendation.upsert({
@@ -159,11 +190,27 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID rekomendasi wajib disertakan' }, { status: 400 });
+    }
+
+    if (user?.role === 'UNIT' && user?.jenjangScope) {
+      const existing = await prisma.recommendation.findUnique({
+        where: { id },
+        include: { student: { select: { jenjang: true } } },
+      });
+      if (!existing || existing.student.jenjang !== user.jenjangScope) {
+        return NextResponse.json(
+          { success: false, error: `Akses ditolak: Anda hanya dapat menghapus rekomendasi siswa Unit ${user.jenjangScope}` },
+          { status: 403 }
+        );
+      }
     }
 
     await prisma.recommendation.delete({

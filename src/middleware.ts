@@ -90,24 +90,36 @@ export async function middleware(request: NextRequest) {
   const userRole = roleInfo?.role || 'ADMIN';
 
   if (isLoginPage) {
-    const destination = userRole === 'PEWAWANCARA' ? '/wawancara' : '/pendaftar';
+    const destination = userRole === 'PEWAWANCARA' ? '/wawancara' : userRole === 'UNIT' ? '/' : '/';
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
   // 6. Role-Based Navigation Protection (Edge level)
+  // Unit specific accounts: Strictly limited to Dashboard, Import, Data Siswa, and Rekomendasi
+  if (userRole === 'UNIT') {
+    if (!pathname.startsWith('/api/')) {
+      const allowedUnitPages = ['/', '/import', '/siswa', '/rekomendasi'];
+      const isAllowed = allowedUnitPages.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+      );
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+    }
+  }
+
   // Protected Super-Admin Only Pages (Finances, Master Settings, Bank Accounts, Discounts)
   const superAdminOnlyPages = [
     '/keuangan',
     '/formulir',
     '/rekening',
     '/daftar-ulang',
-    '/rekomendasi',
     '/pengaturan',
     '/draft',
   ];
 
-  // Panitia PPDB and Unit specific accounts: Allowed on operational modules only
-  if (userRole === 'PANITIA' || userRole === 'UNIT') {
+  // Panitia PPDB: Allowed on operational modules only
+  if (userRole === 'PANITIA') {
     const isTryingFinancialPage = superAdminOnlyPages.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
     );

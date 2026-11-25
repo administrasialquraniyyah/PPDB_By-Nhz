@@ -3,11 +3,15 @@ import prisma from '@/lib/prisma';
 import { parseExcelBuffer } from '@/lib/excelParser';
 import { triggerAutoBackup } from '@/lib/backupService';
 import { ensureDbSchema } from '@/lib/dbInit';
+import { verifySession } from '@/lib/authGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const { user, errorResponse } = await verifySession(['ADMIN', 'PANITIA', 'UNIT']);
+    if (errorResponse) return errorResponse;
+
     await ensureDbSchema();
     const contentType = request.headers.get('content-type') || '';
 
@@ -82,6 +86,7 @@ export async function POST(request: Request) {
         rows: parsed.rows,
         academicYearId,
         targetStatus,
+        scopedJenjang: user?.role === 'UNIT' ? user.jenjangScope : null,
       });
     }
 
@@ -97,6 +102,7 @@ export async function POST(request: Request) {
       rows,
       academicYearId,
       targetStatus,
+      scopedJenjang: user?.role === 'UNIT' ? user.jenjangScope : null,
     });
   } catch (error: any) {
     console.error('Import error:', error);
@@ -108,10 +114,12 @@ async function commitStudents({
   rows,
   academicYearId,
   targetStatus,
+  scopedJenjang,
 }: {
   rows: any[];
   academicYearId: string;
   targetStatus: string;
+  scopedJenjang?: string | null;
 }) {
   // Ensure valid academic year
   let yearId = academicYearId;
@@ -161,7 +169,8 @@ async function commitStudents({
     }
 
     try {
-      const defaultFee = feeMap[row.jenjang] || 300000;
+      const finalJenjang = scopedJenjang || row.jenjang || 'SMP';
+      const defaultFee = feeMap[finalJenjang] || 300000;
       const actualFee = row.biayaFormulir && row.biayaFormulir > 0 ? row.biayaFormulir : defaultFee;
       const diskon = Math.max(0, defaultFee - actualFee);
 
@@ -173,7 +182,7 @@ async function commitStudents({
           noPendaftaran: row.noPendaftaran || null,
           noInduk: row.noInduk || null,
           namaLengkap: row.namaLengkap,
-          jenjang: row.jenjang || 'SMP',
+          jenjang: finalJenjang,
           gelombang: row.gelombang || 'Gelombang 1',
           nik: row.nik || null,
           nisn: row.nisn || null,

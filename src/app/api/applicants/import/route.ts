@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
       return await commitApplicants({
         rows: processedRows,
         academicYearId,
+        scopedJenjang: user?.role === 'UNIT' ? user.jenjangScope : null,
       });
     }
 
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
     return await commitApplicants({
       rows,
       academicYearId,
+      scopedJenjang: user?.role === 'UNIT' ? user.jenjangScope : null,
     });
   } catch (error: any) {
     console.error('Error importing applicants:', error);
@@ -143,9 +145,11 @@ export async function POST(request: NextRequest) {
 async function commitApplicants({
   rows,
   academicYearId,
+  scopedJenjang,
 }: {
   rows: any[];
   academicYearId: string;
+  scopedJenjang?: string | null;
 }) {
   if (!academicYearId) {
     return NextResponse.json({ success: false, error: 'Tahun ajaran wajib dipilih' }, { status: 400 });
@@ -175,7 +179,7 @@ async function commitApplicants({
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const jenjang = (r.jenjang || 'SMP').toUpperCase();
+    const jenjang = (scopedJenjang || r.jenjang || 'SMP').toUpperCase();
     const cleanName = (r.namaLengkap || '').trim();
     if (!cleanName) continue;
 
